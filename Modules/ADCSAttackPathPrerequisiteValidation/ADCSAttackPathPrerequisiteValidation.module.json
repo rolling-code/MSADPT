@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.1",
+  "manifestVersion": "1.0.4",
+  "name": "ADCSAttackPathPrerequisiteValidation",
+  "moduleVersion": "0.1.4",
+  "description": "Resolve AD CS candidate principals and export flattened membership plus classified object-control evidence without certificate enrollment or state change.",
+  "executionClass": "read_only",
+  "entryPoint": "Modules/ADCSAttackPathPrerequisiteValidation/Invoke-MSADPTADCSAttackPathPrerequisiteValidation.ps1",
+  "acceptedTargetTypes": ["engagement", "enterpriseCA", "certificateTemplate"],
+  "requires": ["certificateTemplateConfiguration", "certificateTemplateAclEvidence"],
+  "produces": ["adcsCandidatePrincipalResolution", "adcsCandidateGroupMembership", "adcsCandidateObjectControlEvidence"],
+  "requiresHumanApproval": false,
+  "refreshPolicy": {
+    "eligibleWhenInstalledVersionGreaterThanCompletedVersion": true,
+    "preserveSupersededEvidence": true
+  },
+  "doesNotPerform": ["certificateEnrollment", "authenticationTesting", "caRuntimeQuery", "webEnrollmentTesting", "caRuntimeModification", "directoryModification", "exploitValidation", "stateChange"]
+}

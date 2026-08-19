@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://msadpt.local/schemas/module-result.schema.json",
+  "title": "MSADPT Module Result",
+  "type": "object",
+  "required": ["schemaVersion", "moduleName", "status", "startedUtc", "completedUtc"],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "moduleName": { "type": "string" },
+    "moduleVersion": { "type": "string" },
+    "status": { "enum": ["Assessed", "Partial", "Failed", "PermissionDenied", "Skipped", "NotApplicable"] },
+    "startedUtc": { "type": "string", "format": "date-time" },
+    "completedUtc": { "type": "string", "format": "date-time" },
+    "targetsRequested": { "type": "array" },
+    "targetsAssessed": { "type": "array" },
+    "findings": { "type": "array" },
+    "evidenceReferences": { "type": "array", "items": { "type": "string" } },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "errors": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

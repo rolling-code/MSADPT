@@ -1,0 +1,62 @@
+{
+  "schemaVersion": "1.0.0",
+  "catalogVersion": "1.0.0",
+  "name": "MSADPT Unicode Identity Ambiguity Research Catalog",
+  "purpose": "Track evidence requirements for defensive detection of Unicode identity ambiguity in Active Directory without performing exploitation.",
+  "references": [
+    {
+      "title": "Identity Crisis: Novel Vulnerabilities Leading to Kerberos Downgrade, DoS, and Full Domain Takeover",
+      "publisher": "Semperis",
+      "published": "2026-08-05",
+      "url": "https://www.semperis.com/blog/identity-crisis-novel-vulnerabilities-leading-to-kerberos-downgrade-dos-and-full-domain-takeover/"
+    },
+    {
+      "id": "CVE-2026-25177",
+      "name": "KerberLoss",
+      "category": "Active Directory Domain Services elevation of privilege",
+      "vendorPatchMonth": "2026-03"
+    },
+    {
+      "id": "CVE-2026-27912",
+      "name": "ResetNightmare",
+      "category": "Windows Kerberos elevation of privilege",
+      "vendorPatchMonth": "2026-04"
+    }
+  ],
+  "detectionPrinciples": [
+    "Inspect values returned from broad object collection on the client side; do not rely only on LDAP filters for a suspicious character.",
+    "Preserve raw strings, Unicode code points, normalized forms, object SID, object GUID, and distinguished name.",
+    "Treat suspicious Unicode and normalized collisions as leads, not proof of exploitation.",
+    "Patch state and delegated write permissions remain separate prerequisite evidence.",
+    "Do not create, rename, modify, or authenticate as a test object during detection."
+  ],
+  "attributes": [
+    "sAMAccountName",
+    "userPrincipalName",
+    "servicePrincipalName",
+    "cn",
+    "name",
+    "displayName",
+    "dNSHostName"
+  ],
+  "candidateTypes": [
+    "SuspiciousUnicodeCodePoint",
+    "CompatibilityNormalizationChange",
+    "SuspiciousCharacterRemovalChange",
+    "NormalizedIdentityCollision",
+    "NormalizedSpnCollision",
+    "RawDuplicateAcrossObjects"
+  ],
+  "allowedDispositions": [
+    "Observed",
+    "Not observed",
+    "Inconclusive",
+    "Not applicable"
+  ],
+  "prohibitedConclusions": [
+    "Exploited",
+    "Vulnerable",
+    "Domain takeover",
+    "Malicious"
+  ]
+}

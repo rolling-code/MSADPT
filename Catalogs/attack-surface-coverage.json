@@ -1,0 +1,144 @@
+{
+  "SchemaVersion": "1.0",
+  "AllowedStates": [
+    "NotStarted",
+    "Planned",
+    "Collected",
+    "CandidateDetected",
+    "BehaviorallyValidated",
+    "Confirmed",
+    "Likely",
+    "Inconclusive",
+    "NotDetected",
+    "NotApplicable",
+    "Blocked",
+    "Failed",
+    "Superseded"
+  ],
+  "Families": [
+    {
+      "Id": "Identity.Kerberos",
+      "Name": "Kerberos and Identity",
+      "Techniques": [
+        "AS-REP roasting",
+        "Kerberoasting",
+        "Duplicate SPNs",
+        "Weak ticket encryption"
+      ]
+    },
+    {
+      "Id": "Identity.Delegation",
+      "Name": "Delegation",
+      "Techniques": [
+        "Unconstrained delegation",
+        "Constrained delegation",
+        "Resource-based constrained delegation"
+      ]
+    },
+    {
+      "Id": "ADCS",
+      "Name": "Active Directory Certificate Services",
+      "Techniques": [
+        "ESC1",
+        "ESC2",
+        "ESC3",
+        "ESC4",
+        "ESC5",
+        "ESC6",
+        "ESC7",
+        "ESC8",
+        "ESC9",
+        "ESC10",
+        "ESC11",
+        "ESC12",
+        "ESC13",
+        "ESC14",
+        "ESC15",
+        "ESC16"
+      ]
+    },
+    {
+      "Id": "Authentication.Relay",
+      "Name": "Relay prerequisites",
+      "Techniques": [
+        "SMB signing",
+        "LDAP signing",
+        "LDAP channel binding",
+        "EPA",
+        "NTLM relay readiness",
+        "MachineAccountQuota"
+      ]
+    },
+    {
+      "Id": "Directory.Control",
+      "Name": "Directory control",
+      "Techniques": [
+        "GenericAll",
+        "GenericWrite",
+        "WriteDacl",
+        "WriteOwner",
+        "RBCD write",
+        "Key credential write",
+        "Replication rights"
+      ]
+    },
+    {
+      "Id": "SMB.Files",
+      "Name": "SMB and file exposure",
+      "Techniques": [
+        "SMB signing",
+        "Share enumeration",
+        "SYSVOL",
+        "NETLOGON",
+        "GPP",
+        "Deployment scripts",
+        "PKCS12"
+      ]
+    },
+    {
+      "Id": "GPO",
+      "Name": "Group Policy",
+      "Techniques": [
+        "GPO permissions",
+        "SYSVOL permissions",
+        "Startup scripts",
+        "Logon scripts",
+        "Scheduled tasks"
+      ]
+    },
+    {
+      "Id": "Trusts",
+      "Name": "Trusts and boundaries",
+      "Techniques": [
+        "Domain trusts",
+        "Forest trusts",
+        "SID filtering",
+        "Selective authentication"
+      ]
+    },
+    {
+      "Id": "LateralMovement",
+      "Name": "Lateral movement",
+      "Techniques": [
+        "WinRM",
+        "WMI",
+        "DCOM",
+        "RDP",
+        "LAPS",
+        "Services",
+        "Scheduled tasks"
+      ]
+    },
+    {
+      "Id": "NameResolution",
+      "Name": "Name resolution",
+      "Techniques": [
+        "LLMNR",
+        "NBT-NS",
+        "mDNS",
+        "WPAD",
+        "IPv6 DNS"
+      ]
+    }
+  ]
+}

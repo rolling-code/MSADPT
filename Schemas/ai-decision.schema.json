@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://msadpt.local/schemas/ai-decision.schema.json",
+  "title": "MSADPT AI Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion","decision","recommendedModule","targetSelector","reason","evidenceUsed","expectedEvidence","confidence","executionClass","requiresHumanApproval"],
+  "properties": {
+    "schemaVersion": {"const":"1.0"},
+    "decision": {"enum":["collect_more_evidence","stop"]},
+    "recommendedModule": {"type":"string","minLength":1},
+    "targetSelector": {"type":"object","required":["type","identifiers"],"additionalProperties":false,"properties":{"type":{"type":"string"},"identifiers":{"type":"array","items":{"type":"string"}}}},
+    "reason": {"type":"string","minLength":1},
+    "evidenceUsed": {"type":"array","items":{"type":"string"}},
+    "expectedEvidence": {"type":"array","items":{"type":"string"}},
+    "confidence": {"enum":["high","medium","low"]},
+    "executionClass": {"const":"read_only"},
+    "requiresHumanApproval": {"const":false}
+  }
+}

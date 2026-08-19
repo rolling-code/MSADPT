@@ -1,0 +1,48 @@
+# Runtime and engagement data
+Engagements/
+Sessions/
+Backups/
+evidence/
+evidence-archive/
+reasoning/
+state/
+archive/
+Generated/
+Results/
+
+# Secrets and credential containers
+*.pfx
+*.p12
+*.key
+*.pem
+*.ppk
+*.kdbx
+*.kirbi
+*.ccache
+
+# Runtime records
+console-transcript.txt
+session-events.jsonl
+session-state.json
+engagement-state.json
+module-execution-ledger.json
+next-decision.json
+preflight-report.json
+
+# Temporary and duplicate files
+*.backup-*
+* - Copy.*
+*.tmp
+*.temp
+*.log
+*.bak
+*.old
+*.orig
+
+# Local tools and editors
+.ollama/
+ollama-models/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "MSADPT normalized stage status",
+  "type": "object",
+  "required": ["ModuleId", "ModuleVersion", "Stages", "Disposition"],
+  "properties": {
+    "ModuleId": { "type": "string" },
+    "ModuleVersion": { "type": "string" },
+    "Disposition": { "enum": ["NotStarted","Planned","Collected","CandidateDetected","BehaviorallyValidated","Confirmed","Likely","Inconclusive","NotDetected","NotApplicable","Blocked","Failed","Superseded"] },
+    "Stages": {
+      "type": "object",
+      "properties": {
+        "PlanningSucceeded": { "type": ["boolean","null"] },
+        "DiscoverySucceeded": { "type": ["boolean","null"] },
+        "NetworkOperationSucceeded": { "type": ["boolean","null"] },
+        "AcquisitionSucceeded": { "type": ["boolean","null"] },
+        "ParsingSucceeded": { "type": ["boolean","null"] },
+        "SemanticAnalysisSucceeded": { "type": ["boolean","null"] },
+        "BehavioralValidationSucceeded": { "type": ["boolean","null"] },
+        "ImpactReproduced": { "type": ["boolean","null"] },
+        "CleanupAttempted": { "type": ["boolean","null"] },
+        "CleanupVerified": { "type": ["boolean","null"] },
+        "EvidenceWritten": { "type": ["boolean","null"] },
+        "ManifestVerified": { "type": ["boolean","null"] }
+      }
+    }
+  }
+}

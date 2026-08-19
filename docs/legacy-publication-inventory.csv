@@ -1,0 +1,9 @@
+File,Disposition,Reason,RequiredAction
+MSADPT_scan_network2.ps1,Exclude pending full refactor,"Incomplete scaffold; undefined parameters; missing discovery and scan implementations","Build a new bounded read-only reachability collector with explicit scope and synthetic tests"
+MSADPT_exploit_privesc_initial.ps1,Review required,"Legacy filename and behavior indicate active validation may be mixed with collection","Perform complete code review; decompose collection from state-changing or exploit behavior; exclude from initial release"
+MSADPT_enumerate_dc2.ps1,Review required,"Legacy collector superseded in part by registered DomainControllerEnumeration","Compare functionality; retain only reviewed generic capabilities"
+MSADPT_audit_adcs_esc1_esc16.ps1,Review required,"Potentially useful analysis but not yet aligned with current evidence contract","Review, anonymize, separate collection from analysis, and add tests"
+MSADPT_enumerate_shares2.ps1,Review required,"Authenticated access and network behavior require separate policy classification","Review and split reachability, access validation, and share analysis"
+MSADPT_start2.ps1,Exclude if superseded,"Legacy launcher likely superseded by controlled Milestone launchers","Confirm no unique required behavior, then remove from release inventory"
+MSADPT-ADCS-CSV-Validator.ps1,Review required,"Potential offline validator suitable for publication after review","Parse test, anonymize, add synthetic fixtures, and document evidence limits"
+MSADPT.Helpers.psm1,Review required,"Shared dependency must be reviewed before any dependent legacy script is published","Parse test, anonymize, document exported functions, and add unit tests"

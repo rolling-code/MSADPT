@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://msadpt.local/schemas/engagement.schema.json",
+  "title": "MSADPT Engagement State",
+  "type": "object",
+  "required": ["schemaVersion", "runId", "status", "startedUtc"],
+  "properties": {
+    "schemaVersion": { "type": "string" },
+    "runId": { "type": "string", "minLength": 1 },
+    "engagementName": { "type": "string" },
+    "assessmentMode": { "enum": ["ReadOnly", "ControlledValidation"] },
+    "status": { "enum": ["Running", "Completed", "CompletedWithLimitations", "Failed", "Stopped"] },
+    "startedUtc": { "type": "string", "format": "date-time" },
+    "completedUtc": { "type": ["string", "null"], "format": "date-time" },
+    "domainFQDN": { "type": ["string", "null"] },
+    "bootstrapServer": { "type": ["string", "null"] },
+    "errors": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,180 @@
+{
+  "schemaVersion": "1.0.0",
+  "catalogVersion": "1.0.0",
+  "name": "MSADPT ADCS Technique Prerequisite Catalog",
+  "purpose": "Define evidence requirements for deterministic, non-exploitative correlation of AD CS ESC1 through ESC16 candidate paths.",
+  "allowedCandidateDispositions": [
+    "Prerequisites satisfied",
+    "Blocked",
+    "Incomplete evidence",
+    "Not applicable"
+  ],
+  "prohibitedConclusions": [
+    "Vulnerable",
+    "Exploitable",
+    "Critical",
+    "Domain compromise"
+  ],
+  "techniques": [
+    {
+      "id": "ESC1",
+      "title": "Enrollee-supplied identity on an authentication-capable template",
+      "category": "TemplateConfiguration",
+      "required": ["enterpriseCaPresent", "templatePublished", "effectiveLowPrivilegeEnrollment", "enrolleeSuppliesIdentity", "authenticationCapableEku", "managerApprovalDisabled", "authorizedSignaturesNotRequired"],
+      "blocking": ["managerApprovalRequired", "authorizedSignaturesRequired", "noAuthenticationCapableEku", "noEffectiveEnrollmentPath"],
+      "supporting": ["principalResolved", "nestedMembershipEvaluated", "denyAcesEvaluated", "caReachabilityObserved"],
+      "runtimeDependent": false,
+      "safeFollowUp": "Resolve effective enrollment membership and blocking ACEs before considering any certificate-request validation."
+    },
+    {
+      "id": "ESC2",
+      "title": "Any Purpose or unrestricted-EKU template",
+      "category": "TemplateConfiguration",
+      "required": ["enterpriseCaPresent", "templatePublished", "effectiveLowPrivilegeEnrollment", "anyPurposeOrNoEkuRestriction", "managerApprovalDisabled", "authorizedSignaturesNotRequired"],
+      "blocking": ["managerApprovalRequired", "authorizedSignaturesRequired", "restrictedEku", "noEffectiveEnrollmentPath"],
+      "supporting": ["principalResolved", "intendedTemplateUseValidated"],
+      "runtimeDependent": false,
+      "safeFollowUp": "Validate effective enrollment and intended certificate use; do not assume authentication impact from EKU breadth alone."
+    },
+    {
+      "id": "ESC3",
+      "title": "Certificate Request Agent enrollment chain",
+      "category": "TemplateConfiguration",
+      "required": ["enterpriseCaPresent", "agentTemplatePublished", "effectiveLowPrivilegeAgentEnrollment", "certificateRequestAgentEku", "targetTemplatePublished", "targetTemplateAllowsAgentEnrollment"],
+      "blocking": ["agentManagerApprovalRequired", "agentAuthorizedSignaturesRequired", "enrollmentAgentRestrictionsBlockPath", "noEffectiveAgentEnrollmentPath"],
+      "supporting": ["enrollmentAgentRestrictionsCollected", "targetEnrollmentPermissionsResolved"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Collect enrollment-agent restrictions and target-template permissions before evaluating an on-behalf-of chain."
+    },
+    {
+      "id": "ESC4",
+      "title": "Certificate template control",
+      "category": "AccessControl",
+      "required": ["enterpriseCaPresent", "templatePresent", "effectiveNonPrivilegedTemplateControl"],
+      "blocking": ["onlyPrivilegedTemplateControllers", "denyAcesBlockTemplateControl", "candidatePrincipalDisabledOrAbsent"],
+      "supporting": ["templatePublished", "controllerResolved", "nestedMembershipEvaluated", "controlPermissionClassified"],
+      "runtimeDependent": false,
+      "safeFollowUp": "Validate effective control, publication, and whether a controlled template could be changed into a usable authentication path."
+    },
+    {
+      "id": "ESC5",
+      "title": "PKI object control",
+      "category": "AccessControl",
+      "required": ["enterpriseCaPresent", "effectiveNonPrivilegedPkiObjectControl", "controlledPkiObjectSecurityRelevant"],
+      "blocking": ["onlyPrivilegedPkiControllers", "denyAcesBlockPkiControl", "candidatePrincipalDisabledOrAbsent"],
+      "supporting": ["pkiObjectTypeResolved", "controlPermissionClassified", "objectOwnershipCollected"],
+      "runtimeDependent": false,
+      "safeFollowUp": "Identify the exact controlled PKI object and the configuration influence it provides."
+    },
+    {
+      "id": "ESC6",
+      "title": "CA permits request-attribute SAN",
+      "category": "CaRuntime",
+      "required": ["enterpriseCaPresent", "editfAttributeSubjectAltName2Observed", "effectiveLowPrivilegeEnrollmentOnAuthenticationTemplate", "caAcceptsRequests"],
+      "blocking": ["editfAttributeSubjectAltName2NotObserved", "noAuthenticationTemplateEnrollmentPath", "caQueryFailed"],
+      "supporting": ["strongCertificateMappingEvaluated", "caReachabilityObserved", "templateSecurityExtensionEvaluated"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Correlate the CA flag with effective enrollment and current certificate-mapping behavior."
+    },
+    {
+      "id": "ESC7",
+      "title": "Certificate authority control",
+      "category": "AccessControl",
+      "required": ["enterpriseCaPresent", "effectiveNonPrivilegedManageCaOrCertificates"],
+      "blocking": ["onlyPrivilegedCaControllers", "denyAcesBlockCaControl", "caSecurityDescriptorUnavailable"],
+      "supporting": ["manageCaRightsClassified", "manageCertificatesRightsClassified", "officerRestrictionsCollected"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Resolve the exact CA right and required secondary prerequisites before drawing an escalation conclusion."
+    },
+    {
+      "id": "ESC8",
+      "title": "HTTP enrollment relay surface",
+      "category": "EnrollmentInterface",
+      "required": ["enterpriseCaPresent", "httpEnrollmentEndpointObserved", "ntlmAuthenticationAccepted", "relayMitigationsNotConfirmed", "usableEnrollmentTemplatePath"],
+      "blocking": ["httpEnrollmentNotObserved", "extendedProtectionConfirmed", "ntlmDisabled", "noUsableEnrollmentTemplatePath"],
+      "supporting": ["endpointReachabilityObserved", "tlsObserved", "channelBindingEvaluated"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Validate the endpoint, authentication method, and relay mitigations without relaying credentials."
+    },
+    {
+      "id": "ESC9",
+      "title": "Template omits the certificate security extension",
+      "category": "CertificateMapping",
+      "required": ["enterpriseCaPresent", "templatePublished", "effectiveEnrollmentPath", "noSecurityExtensionTemplateFlag", "mappingPrerequisitesPermitImpact"],
+      "blocking": ["securityExtensionIncluded", "mappingPrerequisitesBlockImpact", "noEffectiveEnrollmentPath"],
+      "supporting": ["strongCertificateMappingEvaluated", "accountMappingAttributesEvaluated"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Correlate template flags with current KDC and Schannel mapping behavior."
+    },
+    {
+      "id": "ESC10",
+      "title": "Weak certificate mapping behavior",
+      "category": "CertificateMapping",
+      "required": ["weakCertificateMappingObserved", "controllableMappingAttribute", "usableCertificateEnrollmentPath"],
+      "blocking": ["strongCertificateMappingEnforced", "mappingAttributeNotControllable", "noUsableCertificatePath"],
+      "supporting": ["kdcMappingPolicyCollected", "schannelMappingPolicyCollected", "accountMappingAttributesEvaluated"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Collect mapping policy and account-attribute control evidence before considering authentication testing."
+    },
+    {
+      "id": "ESC11",
+      "title": "RPC enrollment relay surface",
+      "category": "EnrollmentInterface",
+      "required": ["enterpriseCaPresent", "rpcEnrollmentReachable", "encryptedRpcRequestNotEnforced", "usableEnrollmentTemplatePath"],
+      "blocking": ["rpcEnrollmentNotReachable", "encryptedRpcRequestEnforced", "noUsableEnrollmentTemplatePath"],
+      "supporting": ["interfaceFlagsParsed", "rpcAuthenticationControlsEvaluated"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Correlate RPC reachability with IF_ENFORCEENCRYPTICERTREQUEST and enrollment permissions."
+    },
+    {
+      "id": "ESC12",
+      "title": "CA private-key or host compromise prerequisite",
+      "category": "CaHostControl",
+      "required": ["enterpriseCaPresent", "effectiveCaHostOrPrivateKeyControl"],
+      "blocking": ["noCaHostControlPath", "privateKeyHardwareProtectionBlocksExport"],
+      "supporting": ["caHostIdentityResolved", "privateKeyProtectionEvidenceCollected", "backupAccessEvaluated"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Validate host and key-protection controls without exporting or accessing private-key material."
+    },
+    {
+      "id": "ESC13",
+      "title": "Issuance-policy OID group link",
+      "category": "IssuancePolicy",
+      "required": ["enterpriseCaPresent", "templatePublished", "effectiveEnrollmentPath", "issuancePolicyPresent", "issuancePolicyLinkedToGroup", "linkedGroupSecurityRelevant"],
+      "blocking": ["noIssuancePolicy", "noOidGroupLink", "linkedGroupNotSecurityRelevant", "noEffectiveEnrollmentPath"],
+      "supporting": ["oidObjectResolved", "linkedGroupResolved", "nestedMembershipEvaluated"],
+      "runtimeDependent": false,
+      "safeFollowUp": "Resolve issuance-policy OIDs, msDS-OIDToGroupLink, and linked-group privileges."
+    },
+    {
+      "id": "ESC14",
+      "title": "Explicit certificate mapping or shadow-credential prerequisite",
+      "category": "CertificateMapping",
+      "required": ["effectiveControlOfMappingAttribute", "certificateAuthenticationAvailable", "targetAccountSecurityRelevant"],
+      "blocking": ["mappingAttributeNotControllable", "certificateAuthenticationUnavailable", "targetAccountProtected"],
+      "supporting": ["altSecurityIdentitiesEvaluated", "keyCredentialLinkEvaluated", "accountControlPathResolved"],
+      "runtimeDependent": false,
+      "safeFollowUp": "Validate effective write control over the exact mapping attribute; do not modify it."
+    },
+    {
+      "id": "ESC15",
+      "title": "Version 1 template application-policy handling",
+      "category": "TemplateConfiguration",
+      "required": ["enterpriseCaPresent", "affectedVersionOneTemplate", "templatePublished", "effectiveEnrollmentPath", "applicationPolicyPrerequisitesSatisfied", "relevantCvePatchStateUnresolvedOrAffected"],
+      "blocking": ["templateNotVersionOne", "relevantCvePatchConfirmed", "noEffectiveEnrollmentPath", "applicationPolicyPrerequisitesBlocked"],
+      "supporting": ["caPatchStateCollected", "templateApplicationPoliciesCollected"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Validate template schema, application policies, and CA patch state before any conclusion."
+    },
+    {
+      "id": "ESC16",
+      "title": "CA-wide security-extension removal",
+      "category": "CertificateMapping",
+      "required": ["enterpriseCaPresent", "caWideSecurityExtensionRemovalObserved", "effectiveEnrollmentPath", "mappingPrerequisitesPermitImpact"],
+      "blocking": ["caSecurityExtensionEnabled", "mappingPrerequisitesBlockImpact", "noEffectiveEnrollmentPath"],
+      "supporting": ["caRuntimeExtensionPolicyCollected", "strongCertificateMappingEvaluated"],
+      "runtimeDependent": true,
+      "safeFollowUp": "Correlate CA-wide extension behavior with current mapping enforcement and effective enrollment."
+    }
+  ]
+}

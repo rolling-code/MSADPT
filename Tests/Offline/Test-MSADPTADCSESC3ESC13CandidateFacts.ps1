@@ -1,0 +1,15 @@
+<# .SYNOPSIS Tests candidate-specific ESC3 and ESC13 fact generation. .NOTES Version: 1.0.1 #>
+[CmdletBinding()]param([Parameter(Mandatory=$true)][string]$BuilderPath,[Parameter(Mandatory=$true)][string]$OutputRoot)
+Set-StrictMode -Version 2.0;$ErrorActionPreference='Stop';$Tok=$null;$Err=$null;$null=[Management.Automation.Language.Parser]::ParseFile($BuilderPath,[ref]$Tok,[ref]$Err);if($Err.Count -gt 0){throw($Err.Message-join'; ')}
+if(Test-Path $OutputRoot){Remove-Item $OutputRoot -Recurse -Force};New-Item -ItemType Directory -Path $OutputRoot -Force|Out-Null
+function F([string]$Id,[string]$State){[pscustomobject]@{id=$Id;state=$State;rationale='synthetic'}}
+$Facts=@((F 'enterpriseCaPresent' 'Confirmed'),(F 'templatePublished' 'Confirmed'),(F 'effectiveLowPrivilegeEnrollment' 'Confirmed'),(F 'managerApprovalDisabled' 'Confirmed'),(F 'authorizedSignaturesNotRequired' 'Confirmed'),(F 'principalResolved' 'Confirmed'))
+$Routes=@([pscustomobject]@{candidateId='ESC1|CA|Agent|P';technique='ESC1';certificationAuthority='CA';template='Agent';principal='P';facts=$Facts},[pscustomobject]@{candidateId='ESC1|CA|Policy|P';technique='ESC1';certificationAuthority='CA';template='Policy';principal='P';facts=$Facts})
+$Templates=@([pscustomobject]@{Name='Agent';ExtendedKeyUsage=@('1.3.6.1.4.1.311.20.2.1');IssuancePolicyOids=@()},[pscustomobject]@{Name='Policy';ExtendedKeyUsage=@();IssuancePolicyOids=@('1.2.3.4')})
+$Contexts=@([pscustomobject]@{identityReference='P';category='SecurityGroup'})
+$P1=Join-Path $OutputRoot 'routes.json';$P2=Join-Path $OutputRoot 'templates.json';$P3=Join-Path $OutputRoot 'contexts.json';$OutRoot=Join-Path $OutputRoot 'out'
+$Routes|ConvertTo-Json -Depth 7|Set-Content $P1;$Templates|ConvertTo-Json -Depth 5|Set-Content $P2;$Contexts|ConvertTo-Json -Depth 4|Set-Content $P3
+$Out=@(& $BuilderPath -UnifiedCandidateInventoryPath $P1 -TemplateConfigurationPath $P2 -IdentityContextPath $P3 -OutputDirectory $OutRoot -Quiet)
+$R=@($Out|Where-Object{$null -ne $_ -and $null -ne $_.PSObject.Properties['builderVersion'] -and [string]$_.status -eq 'Completed'})|Select-Object -Last 1;if($null -eq $R){throw'Terminal missing'}
+$Rows=@(Get-Content $R.outputPath -Raw|ConvertFrom-Json);$Checks=@([pscustomobject]@{Test='FourCandidates';Passed=$Rows.Count -eq 4},[pscustomobject]@{Test='Esc3Count';Passed=[int]$R.esc3Count -eq 2},[pscustomobject]@{Test='Esc13Count';Passed=[int]$R.esc13Count -eq 2},[pscustomobject]@{Test='AgentEkuDetected';Passed=[int]$R.esc3AgentEkuRouteCount -eq 1},[pscustomobject]@{Test='IssuancePolicyDetected';Passed=[int]$R.esc13IssuancePolicyRouteCount -eq 1},[pscustomobject]@{Test='NoSatisfiedRoutes';Passed=@($Rows|Where-Object{[string]$_.disposition -eq 'Prerequisites satisfied'}).Count -eq 0})
+$Checks|Format-Table -AutoSize;$Failed=@($Checks|Where-Object{-not $_.Passed});if($Failed.Count -gt 0){throw"$($Failed.Count) ESC3/ESC13 tests failed"};[pscustomobject]@{Status='Passed';TestCount=$Checks.Count;BuilderVersion='0.1.1';TestVersion='1.0.1'}

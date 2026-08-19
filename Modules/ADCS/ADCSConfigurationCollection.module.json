@@ -1,0 +1,36 @@
+{
+  "schemaVersion": "1.1",
+  "manifestVersion": "1.1.1",
+  "name": "ADCSConfigurationCollection",
+  "moduleVersion": "0.2.1",
+  "description": "Collect read-only enterprise CA publication, certificate-template configuration, interpreted flags, and AD ACL evidence.",
+  "executionClass": "read_only",
+  "entryPoint": "Modules/ADCS/Invoke-MSADPTADCSConfigurationCollection.ps1",
+  "acceptedTargetTypes": [
+    "engagement",
+    "enterpriseCA"
+  ],
+  "requires": [
+    "enterpriseCAObjectPresence"
+  ],
+  "produces": [
+    "enterpriseCaPublication",
+    "certificateTemplateConfiguration",
+    "certificateTemplateAclEvidence",
+    "certificateTemplatePublicationCorrelation"
+  ],
+  "requiresHumanApproval": false,
+  "refreshPolicy": {
+    "eligibleWhenInstalledVersionGreaterThanCompletedVersion": true,
+    "preserveSupersededEvidence": true
+  },
+  "doesNotPerform": [
+    "certificateEnrollment",
+    "authenticationTesting",
+    "caRuntimeQuery",
+    "webEnrollmentTesting",
+    "caRuntimeModification",
+    "exploitValidation",
+    "stateChange"
+  ]
+}

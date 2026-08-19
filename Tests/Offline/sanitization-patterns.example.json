@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "patterns": [
+    {"name":"Example organization domain","pattern":"example-corp\\.invalid"},
+    {"name":"Example workstation","pattern":"WORKSTATION-PLACEHOLDER"},
+    {"name":"Example tenant GUID","pattern":"00000000-0000-0000-0000-000000000000"},
+    {"name":"Corporate storage path","pattern":"OneDrive - Example Organization"}
+  ]
+}

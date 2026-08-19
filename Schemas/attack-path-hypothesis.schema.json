@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/msadpt/schemas/attack-path-hypothesis.schema.json",
+  "title": "MSADPT Attack-Path Hypothesis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion","hypothesisId","status","title","sourcePrincipal","targetAsset","relationships","confirmedPrerequisites","missingPrerequisites","evidenceReferences","limitations","shortestValidation","confidence","createdUtc"],
+  "properties": {
+    "schemaVersion": {"const": "1.0"},
+    "hypothesisId": {"type": "string", "pattern": "^hyp-[A-Za-z0-9._-]+$"},
+    "status": {"enum": ["Confirmed","Likely or probable","Inconclusive","Not detected","Not applicable"]},
+    "title": {"type": "string", "minLength": 1},
+    "sourcePrincipal": {"$ref": "#/$defs/entity"},
+    "targetAsset": {"$ref": "#/$defs/entity"},
+    "relationships": {"type": "array", "items": {"$ref": "#/$defs/relationship"}},
+    "confirmedPrerequisites": {"type": "array", "items": {"type": "string"}},
+    "missingPrerequisites": {"type": "array", "items": {"type": "string"}},
+    "evidenceReferences": {"type": "array", "items": {"type": "string"}},
+    "limitations": {"type": "array", "items": {"type": "string"}},
+    "shortestValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["module","executionClass","reason","requiresHumanApproval"],
+      "properties": {
+        "module": {"type": "string", "minLength": 1},
+        "executionClass": {"const": "read_only"},
+        "reason": {"type": "string", "minLength": 1},
+        "requiresHumanApproval": {"const": false}
+      }
+    },
+    "confidence": {"enum": ["high","medium","low"]},
+    "createdUtc": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "entity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type","identifier"],
+      "properties": {"type": {"type": "string"}, "identifier": {"type": "string", "minLength": 1}}
+    },
+    "relationship": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from","relationshipType","to","status","evidenceReferences"],
+      "properties": {
+        "from": {"type": "string"},
+        "relationshipType": {"type": "string"},
+        "to": {"type": "string"},
+        "status": {"enum": ["Confirmed","Likely or probable","Inconclusive","Not detected","Not applicable"]},
+        "evidenceReferences": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}
