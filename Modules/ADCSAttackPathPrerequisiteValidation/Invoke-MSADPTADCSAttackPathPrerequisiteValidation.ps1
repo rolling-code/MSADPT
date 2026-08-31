@@ -7,7 +7,7 @@ resolves them through portable LDAP searches, and exports flattened group-member
 object-control evidence. Native AD and SID objects are converted to scalar values before JSON serialization.
 This module does not request certificates, test authentication, modify Active Directory, or modify AD CS.
 .NOTES
-Version: 0.1.4
+Version: 0.1.5
 Execution class: read_only
 Compatible with Windows PowerShell 5.1 and PowerShell 7 when the ActiveDirectory module is available.
 #>
@@ -23,7 +23,10 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$ModuleVersion = '0.1.4'
+$RepositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$EvidenceHelperPath = Join-Path $RepositoryRoot 'Common\MSADPT.Evidence.psm1'
+Import-Module $EvidenceHelperPath -Force -ErrorAction Stop
+$ModuleVersion = '0.1.5'
 $AnalysisVersion = '1.2.0'
 $EmptyGuid = [guid]::Empty
 $MemberAttributeGuid = [guid]'bf9679c0-0de6-11d0-a285-00aa003049e2'
@@ -299,18 +302,19 @@ $CandidateIdentities=@($CandidateRows|Select-Object -ExpandProperty IdentityRefe
 $ResolvedIdentities=@(foreach($Identity in $CandidateIdentities){Resolve-MSADPTCandidateIdentity $Identity $CommonAdParameters})
 $OutputDirectory=Join-Path $EngagementPath 'evidence\ADCSAttackPathPrerequisiteValidation'
 New-Item -ItemType Directory -Path $OutputDirectory -Force|Out-Null
-$CandidateRows.ToArray()|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $OutputDirectory 'candidate-principals.json') -Encoding UTF8
-$ResolvedIdentities|ConvertTo-Json -Depth 8|Set-Content -LiteralPath (Join-Path $OutputDirectory 'resolved-identity-prerequisites.json') -Encoding UTF8
+Write-MSADPTJsonEvidence -Path (Join-Path $OutputDirectory 'candidate-principals.json') -Value ([object[]]$CandidateRows.ToArray()) -Depth 8
+Write-MSADPTJsonEvidence -Path (Join-Path $OutputDirectory 'resolved-identity-prerequisites.json') -Value ([object[]]$ResolvedIdentities) -Depth 8
 $ResolvedIdentities|Select-Object IdentityReference,ResolutionStatus,ResolutionMethod,Sid,ObjectClass,DistinguishedName,Enabled,@{N='DirectMemberCount';E={@($_.DirectMembers).Count}},@{N='RecursiveMemberCount';E={@($_.RecursiveMembers).Count}},SecurityDescriptorOwner,TotalWriteRelatedAceCount,RelevantControlAceCount,ExplicitRelevantControlAceCount,InheritedRelevantControlAceCount,WhenCreated,WhenChanged,LastLogonTimestamp|Export-Csv -LiteralPath (Join-Path $OutputDirectory 'identity-prerequisite-summary.csv') -NoTypeInformation -Encoding UTF8
 
+$ManifestPath = New-MSADPTEvidenceManifest -EvidenceDirectory $OutputDirectory -ModuleId 'ADCSAttackPathPrerequisiteValidation' -ModuleVersion $ModuleVersion
 [pscustomobject][ordered]@{
     schemaVersion='1.1';module='ADCSAttackPathPrerequisiteValidation';moduleVersion=$ModuleVersion;analysisVersion=$AnalysisVersion
     status='Completed';executionClass='read_only';candidateTemplateCount=$CandidateTemplates.Count;candidatePrincipalCount=$CandidateIdentities.Count
     resolvedPrincipalCount=@($ResolvedIdentities|Where-Object ResolutionStatus -eq 'Resolved').Count
     wellKnownPrincipalCount=@($ResolvedIdentities|Where-Object ResolutionStatus -eq 'WellKnownPrincipal').Count
     unresolvedPrincipalCount=@($ResolvedIdentities|Where-Object{$_.ResolutionStatus -notin @('Resolved','WellKnownPrincipal')}).Count
-    serializationDepth=8;targetCount=$CandidateIdentities.Count
+    serializationDepth=8;targetCount=$CandidateIdentities.Count;candidateRelationshipCount=$CandidateRows.Count;uniqueCandidatePrincipalCount=$CandidateIdentities.Count
     evidence=@('evidence/ADCSAttackPathPrerequisiteValidation/candidate-principals.json','evidence/ADCSAttackPathPrerequisiteValidation/resolved-identity-prerequisites.json','evidence/ADCSAttackPathPrerequisiteValidation/identity-prerequisite-summary.csv')
-    limitations=@('All member and SID values are flattened before serialization.','ControlEntries contains only broad, owner/DACL, membership, unrestricted property, and deny control ACEs.','Effective control still requires deny-ACE, inheritance, ownership, and nested-group evaluation.','LastLogonTimestamp is replicated and approximate.','CA runtime settings, enrollment, authentication, and state changes are not tested or performed.')
+    limitations=@('All member and SID values are flattened before serialization.','ControlEntries contains only broad, owner/DACL, membership, unrestricted property, and deny control ACEs.','Effective control still requires deny-ACE, inheritance, ownership, and nested-group evaluation.','LastLogonTimestamp is replicated and approximate.','CA runtime settings, enrollment, authentication, and state changes are not tested or performed.','When -Credential is supplied, AD cmdlets use that credential; AD provider ACL reads use the current process identity.')
     completedUtc=(Get-Date).ToUniversalTime().ToString('o')
 }

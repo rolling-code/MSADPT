@@ -8,10 +8,10 @@ Package identity: MSADPT-ADCS-CLOSURE-EVIDENCE-COLLECTION
 [CmdletBinding()]
 param(
  [string]$EngagementPath='C:\Temp\MSADPT-Example\Downloads\PowerShell-Scripts\On-Prem Active Directory\MSADPT\Engagements\MSADPT-Assessment-Example',
- [string]$BootstrapServer='SRVMTLDC05.example.com',
- [string]$CAHost='SRVMTLROOTCA.example.com',
+ [string]$BootstrapServer='DC01.example.com',
+ [string]$CAHost='CA01.example.com',
  [string]$CAName='ExampleOrg-GLOBAL-CA',
- [string]$CADistinguishedName='CN=ExampleOrg-GLOBAL-CA,CN=Enrollment Services,CN=Public Key Services,CN=Services,CN=Configuration,DC=aimfire,DC=net',
+ [string]$CADistinguishedName='CN=ExampleOrg-GLOBAL-CA,CN=Enrollment Services,CN=Public Key Services,CN=Services,CN=Configuration,DC=example,DC=com',
  [ValidateRange(1,15)][int]$TcpTimeoutSeconds=3,
  [ValidateRange(3,30)][int]$HttpTimeoutSeconds=8,
  [ValidateRange(10,90)][int]$HotfixTimeoutSeconds=30,

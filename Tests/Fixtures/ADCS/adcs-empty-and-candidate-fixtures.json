@@ -1,0 +1,48 @@
+{
+  "SchemaVersion": "1.0",
+  "SyntheticData": true,
+  "Scenarios": [
+    {
+      "Id": "EMPTY-CA",
+      "EnterpriseCAs": [],
+      "Templates": [],
+      "Candidates": [],
+      "ExpectedDisposition": "Not applicable"
+    },
+    {
+      "Id": "NO-CANDIDATE",
+      "EnterpriseCAs": [
+        "CA01"
+      ],
+      "Templates": [
+        "SafeTemplate"
+      ],
+      "Candidates": [],
+      "ExpectedDisposition": "Blocked"
+    },
+    {
+      "Id": "CANDIDATE",
+      "EnterpriseCAs": [
+        "CA01"
+      ],
+      "Templates": [
+        "CandidateTemplate"
+      ],
+      "Candidates": [
+        "Principal01"
+      ],
+      "ExpectedDisposition": "Prerequisites satisfied"
+    },
+    {
+      "Id": "RUNTIME-MISSING",
+      "EnterpriseCAs": [
+        "CA01"
+      ],
+      "Templates": [
+        "RuntimeDependentTemplate"
+      ],
+      "Candidates": [],
+      "ExpectedDisposition": "Incomplete evidence"
+    }
+  ]
+}

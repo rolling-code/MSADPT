@@ -2,7 +2,7 @@
 .SYNOPSIS
 Converts validated ADCS evidence into neutral prerequisite facts for offline correlation.
 .NOTES
-Version: 0.1.1
+Version: 0.1.2
 Execution class: offline_analysis
 No AD, CA, network, registry, certificate, or authentication operation is performed.
 #>
@@ -19,8 +19,11 @@ param(
 )
 Set-StrictMode -Version 2.0
 $ErrorActionPreference='Stop'
-$BuilderVersion='0.1.1'
+$BuilderVersion='0.1.2'
 $AllowedStates=@('Confirmed','Not observed','Inconclusive','Not applicable')
+$RepositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$EvidenceHelperPath = Join-Path $RepositoryRoot 'Common\MSADPT.Evidence.psm1'
+Import-Module $EvidenceHelperPath -Force -ErrorAction Stop
 
 if($ConsoleModulePath){Import-Module $ConsoleModulePath -Force -ErrorAction Stop}
 function Write-Step([string]$Action,[string]$Target,[int]$Current,[int]$Total){
@@ -65,6 +68,9 @@ Add-Fact $Facts 'templatePublished' $(if($Published.Count -gt 0){'Confirmed'}els
 $IdentitySupplyAuth=@($Published|Where-Object{((Test-True $_.EnrolleeSuppliesSubject) -or (Test-True $_.EnrolleeSuppliesSubjectAltName)) -and ((Test-True $_.HasAuthenticationCapableEku) -or (Test-True $_.NoExtendedKeyUsageRestriction))})
 Add-Fact $Facts 'enrolleeSuppliesIdentity' $(if($IdentitySupplyAuth.Count -gt 0){'Confirmed'}else{'Not observed'}) "Published identity-supply authentication-capable template count: $($IdentitySupplyAuth.Count)." $TemplateSource @('This aggregate fact does not identify effective enrollment access by itself.')
 Add-Fact $Facts 'authenticationCapableEku' $(if(@($Published|Where-Object{(Test-True $_.HasAuthenticationCapableEku) -or (Test-True $_.NoExtendedKeyUsageRestriction)}).Count -gt 0){'Confirmed'}else{'Not observed'}) 'Evaluated published template EKU evidence.' $TemplateSource @()
+$AnyPurposeOrNoEku = @($Published | Where-Object { (Test-True $_.NoExtendedKeyUsageRestriction) -or (@($_.ExtendedKeyUsage) -contains '2.5.29.37.0') })
+Add-Fact $Facts 'anyPurposeOrNoEkuRestriction' $(if($AnyPurposeOrNoEku.Count -gt 0){'Confirmed'}else{'Not observed'}) "Published Any Purpose or unrestricted-EKU template count: $($AnyPurposeOrNoEku.Count)." $TemplateSource @('EKU breadth alone does not establish authentication impact or effective enrollment.')
+Add-Fact $Facts 'restrictedEku' $(if($AnyPurposeOrNoEku.Count -gt 0){'Not observed'}elseif($Published.Count -gt 0){'Confirmed'}else{'Inconclusive'}) 'Inverse aggregate of Any Purpose or unrestricted-EKU publication evidence.' $TemplateSource @()
 
 $NoApprovalCandidates=@($IdentitySupplyAuth|Where-Object{-not(Test-True $_.ManagerApprovalRequired)})
 Add-Fact $Facts 'managerApprovalDisabled' $(if($NoApprovalCandidates.Count -gt 0){'Confirmed'}else{'Not observed'}) "Candidate templates without manager approval: $($NoApprovalCandidates.Count)." $TemplateSource @()
@@ -104,6 +110,7 @@ Add-Fact $Facts 'encryptedRpcRequestNotEnforced' $(if($Runtime.Count -eq 0){'Inc
 
 $Document=[pscustomobject][ordered]@{schemaVersion='1.0';builder='ADCSEvidenceToFacts';builderVersion=$BuilderVersion;generatedUtc=(Get-Date).ToUniversalTime().ToString('o');facts=@($Facts.ToArray());limitations=@('Aggregate facts do not replace per-template or per-principal candidate analysis.','Facts preserve uncertainty when effective permissions, runtime evidence, mapping behavior, or patch state are incomplete.','No vulnerability or exploitability conclusion is produced.')}
 $Parent=Split-Path $OutputPath -Parent;if($Parent){New-Item -ItemType Directory -Path $Parent -Force|Out-Null}
-$Document|ConvertTo-Json -Depth 10|Set-Content -LiteralPath $OutputPath -Encoding UTF8
+Write-MSADPTJsonEvidence -Path $OutputPath -Value $Document -Depth 10
+$ManifestPath = New-MSADPTEvidenceManifest -EvidenceDirectory (Split-Path -Parent $OutputPath) -ModuleId 'ADCSEvidenceToFacts' -ModuleVersion $BuilderVersion
 if(Get-Command Complete-MSADPTProgress -ErrorAction SilentlyContinue){$null=Complete-MSADPTProgress -Message "Generated $($Facts.Count) neutral ADCS facts." -Outcome Success}
 [pscustomobject]@{Status='Completed';BuilderVersion=$BuilderVersion;FactCount=$Facts.Count;OutputPath=$OutputPath}

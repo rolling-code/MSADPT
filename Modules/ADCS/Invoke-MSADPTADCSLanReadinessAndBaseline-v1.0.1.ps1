@@ -331,7 +331,7 @@ SAFETY BOUNDARY
 - Do not request certificates, test certificate authentication, replay credentials/hashes, or modify CA, templates, or groups.
 
 CONTROLLED OFFICE SEQUENCE
-1. Explicitly confirm that Mario is on the authorized ExampleOrg LAN.
+1. Explicitly confirm that the authorized operator is on the target organization LAN.
 2. Rerun this readiness package and require ReadyForControlledLanValidation.
 3. Review warnings and preserve the baseline manifest.
 4. Confirm the active prerequisite collector is v0.1.4 and the intended manifest is eligible.
