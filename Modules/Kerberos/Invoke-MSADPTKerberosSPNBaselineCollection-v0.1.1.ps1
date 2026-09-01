@@ -142,9 +142,24 @@ function Write-JsonFile {
         [int]$Depth = 12
     )
 
-    $InputObject |
-        ConvertTo-Json -Depth $Depth |
-        Set-Content -LiteralPath $Path -Encoding UTF8
+    $Materialized = [object[]]@($InputObject)
+    if ($Materialized.Count -eq 0) {
+        [IO.File]::WriteAllText(
+            $Path,
+            "[]`r`n",
+            (New-Object Text.UTF8Encoding($false))
+        )
+    }
+    elseif ($Materialized.Count -eq 1 -and $InputObject -isnot [System.Array]) {
+        $InputObject |
+            ConvertTo-Json -Depth $Depth |
+            Set-Content -LiteralPath $Path -Encoding UTF8
+    }
+    else {
+        $Materialized |
+            ConvertTo-Json -Depth $Depth |
+            Set-Content -LiteralPath $Path -Encoding UTF8
+    }
 
     $null = Get-Content -LiteralPath $Path -Raw |
         ConvertFrom-Json -ErrorAction Stop

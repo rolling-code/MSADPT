@@ -1,8 +1,8 @@
 {
   "SchemaVersion": "1.0",
-  "GeneratedUtc": "2026-08-19T15:57:27.0915030Z",
+  "GeneratedUtc": "2026-08-31T15:59:32.7524703Z",
   "DefaultExecutionPolicy": "PlanOnlyUnlessIntegrated",
-  "ModuleCount": 66,
+  "ModuleCount": 67,
   "Modules": [
     {
       "ModuleId": "MSADPT_audit_adcs_esc1_esc16",
@@ -478,11 +478,17 @@
       "Category": "DomainControllers",
       "ComponentType": "Collector",
       "EntryPoint": "Modules/DomainControllers/Invoke-MSADPTDomainControllerEnumeration.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
+      "Maturity": "Integrated",
+      "OrchestrationState": "Integrated",
       "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick"
+      ],
+      "IntegrationRole": "Collector",
+      "ExecutionOrder": 30,
+      "ResumeSupported": true
     },
     {
       "ModuleId": "Complete-MSADPTKerberosSPNBaseline",
@@ -490,11 +496,17 @@
       "Category": "Kerberos",
       "ComponentType": "Collector",
       "EntryPoint": "Modules/Kerberos/Complete-MSADPTKerberosSPNBaseline-v0.1.2.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
+      "Maturity": "Integrated",
+      "OrchestrationState": "Integrated",
       "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick"
+      ],
+      "IntegrationRole": "RecoveryAnalyzer",
+      "ExecutionOrder": 20,
+      "ResumeSupported": true
     },
     {
       "ModuleId": "Invoke-MSADPTKerberosSPNBaselineCollection",
@@ -502,11 +514,17 @@
       "Category": "Kerberos",
       "ComponentType": "Collector",
       "EntryPoint": "Modules/Kerberos/Invoke-MSADPTKerberosSPNBaselineCollection-v0.1.1.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
+      "Maturity": "Integrated",
+      "OrchestrationState": "Integrated",
       "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick"
+      ],
+      "IntegrationRole": "Collector",
+      "ExecutionOrder": 10,
+      "ResumeSupported": true
     },
     {
       "ModuleId": "Complete-MSADPTADObjectControlGateDiagnostics",
@@ -795,6 +813,26 @@
       "SafetyClass": "Offline",
       "RequiresExplicitApproval": false,
       "Public": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDomainControllerPatchState",
+      "Version": "0.1.0",
+      "Category": "VulnerabilityIntelligence",
+      "ComponentType": "Collector",
+      "EntryPoint": "Modules/VulnerabilityIntelligence/Invoke-MSADPTDomainControllerPatchState-v0.1.0.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick"
+      ],
+      "IntegrationRole": "OptionalCollector",
+      "ExecutionOrder": 40,
+      "ResumeSupported": true,
+      "ActivationParameter": "IncludePatchState"
     }
-  ]
+  ],
+  "IntegratedModuleCount": 4
 }

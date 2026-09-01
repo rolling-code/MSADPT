@@ -7,7 +7,7 @@ prerequisite correlator, and exports a compact pipeline summary. This script rea
 collected evidence and performs no Active Directory, CA, network, registry, certificate, or
 authentication operation.
 .NOTES
-Version: 0.1.0
+Version: 0.1.1
 Execution class: offline_analysis
 Compatible with Windows PowerShell 5.1 and PowerShell 7.
 #>
@@ -28,7 +28,10 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$PipelineVersion = '0.1.0'
+$RepositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$EvidenceHelperPath = Join-Path $RepositoryRoot 'Common\MSADPT.Evidence.psm1'
+Import-Module $EvidenceHelperPath -Force -ErrorAction Stop
+$PipelineVersion = '0.1.1'
 
 foreach ($Path in @(
     $FactBuilderPath,
@@ -89,9 +92,7 @@ function Write-PipelineEvent {
     Write-Output $Event
 }
 
-if (Test-Path -LiteralPath $OutputRoot) {
-    Remove-Item -LiteralPath $OutputRoot -Recurse -Force
-}
+$ArchivedOutputPath = Move-MSADPTExistingOutputToArchive -Path $OutputRoot
 New-Item -ItemType Directory -Path $OutputRoot -Force | Out-Null
 
 $FactOutputDirectory = Join-Path $OutputRoot 'Facts'
@@ -212,8 +213,9 @@ $Candidates |
         SafeFollowUp |
     Export-Csv -LiteralPath $PipelineCsvPath -NoTypeInformation -Encoding UTF8
 
-$Summary | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $PipelineSummaryPath -Encoding UTF8
-$Events.ToArray() | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $EventPath -Encoding UTF8
 $Events.Add((Write-PipelineEvent -Kind Success -Code 'PipelineCompleted' -Message ("Completed with {0} fact(s) and {1} technique disposition(s)." -f $Facts.Count,$Candidates.Count) -Target 'MSADPT ADCS' -Data @{SummaryPath=$PipelineSummaryPath}))
+Write-MSADPTJsonEvidence -Path $PipelineSummaryPath -Value $Summary -Depth 8
+Write-MSADPTJsonEvidence -Path $EventPath -Value ([object[]]$Events.ToArray()) -Depth 8
+$ManifestPath = New-MSADPTEvidenceManifest -EvidenceDirectory $OutputRoot -ModuleId 'ADCSOfflineEvidenceToCandidate' -ModuleVersion $PipelineVersion
 
 Write-Output $Summary

@@ -2,7 +2,7 @@
 .SYNOPSIS
 Correlates normalized ADCS facts with the ESC1 through ESC16 prerequisite catalog offline.
 .NOTES
-Version: 0.1.1
+Version: 0.1.2
 Execution class: offline_analysis
 No network, Active Directory, CA, registry, certutil, or state-changing operation is performed.
 #>
@@ -14,6 +14,10 @@ param(
 )
 Set-StrictMode -Version 2.0
 $ErrorActionPreference='Stop'
+$EngineVersion='0.1.2'
+$RepositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$EvidenceHelperPath = Join-Path $RepositoryRoot 'Common\MSADPT.Evidence.psm1'
+Import-Module $EvidenceHelperPath -Force -ErrorAction Stop
 foreach($Path in @($CatalogPath,$FactsPath)){if(-not(Test-Path -LiteralPath $Path -PathType Leaf)){throw "Required file not found: $Path"}}
 $Catalog=Get-Content -LiteralPath $CatalogPath -Raw|ConvertFrom-Json -ErrorAction Stop
 $FactsDocument=Get-Content -LiteralPath $FactsPath -Raw|ConvertFrom-Json -ErrorAction Stop
@@ -51,6 +55,7 @@ $Candidates=foreach($Technique in @($Catalog.techniques)){
 New-Item -ItemType Directory -Path $OutputDirectory -Force|Out-Null
 $JsonPath=Join-Path $OutputDirectory 'adcs-technique-candidates.json'
 $CsvPath=Join-Path $OutputDirectory 'adcs-technique-candidate-summary.csv'
-$Candidates|ConvertTo-Json -Depth 10|Set-Content -LiteralPath $JsonPath -Encoding UTF8
+Write-MSADPTJsonEvidence -Path $JsonPath -Value ([object[]]$Candidates) -Depth 10
 $Candidates|Select-Object Technique,Title,Category,RuntimeDependent,Disposition,RequiredCount,SatisfiedRequiredCount,@{N='UnknownRequiredCount';E={@($_.MissingOrInconclusiveRequired).Count}},@{N='NotObservedRequiredCount';E={@($_.NotObservedRequired).Count}},@{N='BlockingEvidenceCount';E={@($_.ConfirmedBlockingEvidence).Count}},SafeFollowUp|Export-Csv -LiteralPath $CsvPath -NoTypeInformation -Encoding UTF8
-[pscustomobject][ordered]@{schemaVersion='1.0';engine='ADCSPrerequisiteCorrelation';engineVersion='0.1.1';status='Completed';executionClass='offline_analysis';techniqueCount=@($Candidates).Count;prerequisitesSatisfiedCount=@($Candidates|Where-Object Disposition -eq 'Prerequisites satisfied').Count;blockedCount=@($Candidates|Where-Object Disposition -eq 'Blocked').Count;incompleteEvidenceCount=@($Candidates|Where-Object Disposition -eq 'Incomplete evidence').Count;notApplicableCount=@($Candidates|Where-Object Disposition -eq 'Not applicable').Count;evidence=@($JsonPath,$CsvPath)}
+$ManifestPath = New-MSADPTEvidenceManifest -EvidenceDirectory $OutputDirectory -ModuleId 'ADCSPrerequisiteCorrelation' -ModuleVersion $EngineVersion
+[pscustomobject][ordered]@{schemaVersion='1.0';engine='ADCSPrerequisiteCorrelation';engineVersion=$EngineVersion;status='Completed';executionClass='offline_analysis';techniqueCount=@($Candidates).Count;prerequisitesSatisfiedCount=@($Candidates|Where-Object Disposition -eq 'Prerequisites satisfied').Count;blockedCount=@($Candidates|Where-Object Disposition -eq 'Blocked').Count;incompleteEvidenceCount=@($Candidates|Where-Object Disposition -eq 'Incomplete evidence').Count;notApplicableCount=@($Candidates|Where-Object Disposition -eq 'Not applicable').Count;evidence=@($JsonPath,$CsvPath)}

@@ -20,7 +20,7 @@ Optional authorized Active Directory credential. If omitted, the current Windows
 Returns a structured MSADPT module-result object and writes JSON/CSV evidence below the engagement.
 
 .NOTES
-Version: 0.2.1
+Version: 0.2.2
 Execution class: read_only
 Compatible with Windows PowerShell 5.1 and PowerShell 7 when the ActiveDirectory module is available.
 #>
@@ -36,7 +36,10 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$CollectorVersion = '0.2.1'
+$RepositoryRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$EvidenceHelperPath = Join-Path $RepositoryRoot 'Common\MSADPT.Evidence.psm1'
+Import-Module $EvidenceHelperPath -Force -ErrorAction Stop
+$CollectorVersion = '0.2.2'
 $PermissionEvaluationVersion = '1.1.0'
 
 $EnrollExtendedRightGuid = [guid]'0e10c968-78fb-11d2-90d4-00c04f79dc55'
@@ -344,8 +347,8 @@ $TemplateEvidencePath = Join-Path $OutputDirectory 'certificate-template-configu
 $TemplateSummaryPath = Join-Path $OutputDirectory 'certificate-template-summary.csv'
 $AccessEvidencePath = Join-Path $OutputDirectory 'certificate-template-access.csv'
 
-$EnterpriseCas | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $CaEvidencePath -Encoding UTF8
-$Rows.ToArray() | ConvertTo-Json -Depth 30 | Set-Content -LiteralPath $TemplateEvidencePath -Encoding UTF8
+Write-MSADPTJsonEvidence -Path $CaEvidencePath -Value ([object[]]$EnterpriseCas) -Depth 20
+Write-MSADPTJsonEvidence -Path $TemplateEvidencePath -Value ([object[]]$Rows.ToArray()) -Depth 30
 
 $Rows.ToArray() |
     Select-Object PermissionEvaluationVersion, Name, DisplayName, TemplatePresentInDirectory, PublishedByDiscoveredCA,
@@ -361,6 +364,7 @@ $Rows.ToArray() |
 $AccessRows.ToArray() |
     Export-Csv -LiteralPath $AccessEvidencePath -NoTypeInformation -Encoding UTF8
 
+$ManifestPath = New-MSADPTEvidenceManifest -EvidenceDirectory $OutputDirectory -ModuleId 'ADCSConfigurationCollection' -ModuleVersion $CollectorVersion
 $PublishedTemplateCount = @($Rows.ToArray() | Where-Object PublishedByDiscoveredCA).Count
 $UnpublishedTemplateCount = $Rows.Count - $PublishedTemplateCount
 
@@ -386,7 +390,8 @@ $UnpublishedTemplateCount = $Rows.Count - $PublishedTemplateCount
         'Collection records directory configuration, CA publication lists, and template ACL evidence but does not claim an ESC condition or exploitability.',
         'CA runtime registry settings, CA security descriptors, issuance-policy mappings, web enrollment endpoints, and RPC/DCOM reachability are not tested by this module.',
         'ACL permission masks are interpreted per ACE with full-mask matching; effective access still requires nested-group, deny-ACE, authentication, issuance, and CA-policy evaluation.',
-        'No certificate enrollment, authentication attempt, template modification, or CA modification is performed.'
+        'No certificate enrollment, authentication attempt, template modification, or CA modification is performed.',
+        'When -Credential is supplied, AD cmdlets use that credential; AD provider ACL reads use the current process identity.'
     )
     completedUtc           = (Get-Date).ToUniversalTime().ToString('o')
 }

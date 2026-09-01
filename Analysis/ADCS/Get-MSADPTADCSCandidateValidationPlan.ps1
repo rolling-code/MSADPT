@@ -254,7 +254,7 @@ $OfficePlan=[pscustomobject][ordered]@{
         validationPriorityScore='Workflow priority derived from completeness, identity context, disposition, and evidence effort. Not severity.'
     }
     nextLanSequence=@(
-        'Explicitly confirm Mario is on the ExampleOrg LAN.',
+        'Explicitly confirm the authorized operator is on the target organization LAN.',
         'Archive current ADCSAttackPathPrerequisiteValidation v0.1.3 evidence.',
         'Revalidate v0.1.4 collector, manifest, and offline tests.',
         'Run one deterministic dry run and confirm only v0.1.4 is eligible.',

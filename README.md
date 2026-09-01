@@ -163,3 +163,55 @@ MSADPT is under active development. Modules that are present in the repository h
 ## License and contributions
 
 Use MSADPT only in environments where testing is authorized. Contributions should include parser validation, offline tests, sanitized fixtures, explicit safety boundaries, and structured evidence outputs.
+## Quick Audit
+
+Run the default bounded read-only assessment from a domain-connected Windows system:
+
+```powershell
+.\Invoke-MSADPT.ps1 -Mode Plan -Profile Quick
+.\Invoke-MSADPT.ps1 -Mode Audit -Profile Quick
+```
+
+Quick Audit performs local preflight, announces the Active Directory query plan, collects a Kerberos/SPN baseline, inventories domain controllers, updates the coverage ledger, and writes `reports\MSADPT-Quick-Audit.html` inside the engagement directory.
+
+Quick Audit does not request Kerberos tickets, collect password material, authenticate to discovered services, execute remote commands, or modify Active Directory.
+
+Resume without repeating completed manifest-backed collection:
+
+```powershell
+.\Invoke-MSADPT.ps1 -Mode Resume -Profile Quick -EngagementDirectory .\Engagements\<engagement-name>
+```
+
+The other published modules remain available as standalone or experimental components until their parameter, evidence, safety, and resume contracts are integrated and deterministically validated.
+Validate the Quick Audit orchestration contract without contacting Active Directory:
+
+```powershell
+.\Tests\Offline\Test-MSADPTQuickAudit.ps1
+```
+### Domain-controller patch-state collection
+
+After Quick Audit produces domain-controller evidence, collect full four-part Windows build evidence and evaluate the local AD vulnerability catalog:
+
+```powershell
+.\Modules\VulnerabilityIntelligence\Invoke-MSADPTDomainControllerPatchState-v0.1.0.ps1 `
+    -DomainControllerEvidencePath .\Engagements\<name>\evidence\DomainControllerEnumeration\domain-controller-details.json `
+    -OutputDirectory .\Engagements\<name>\evidence\DomainControllerPatchState
+```
+
+The collector announces every target and management method before execution. It performs read-only Remote Registry queries with optional CIM fallback. It does not start services, change registry values, install updates, restart systems, or reproduce CVE impact.
+### Quick Audit with current AD vulnerability intelligence
+
+Run the standard Quick Audit plus optional read-only domain-controller patch-state collection:
+
+```powershell
+.\Invoke-MSADPT.ps1 -Mode Plan -Profile Quick -IncludePatchState
+.\Invoke-MSADPT.ps1 -Mode Audit -Profile Quick -IncludePatchState
+```
+
+Resume reuses manifest-backed Kerberos, domain-controller, and patch-state evidence:
+
+```powershell
+.\Invoke-MSADPT.ps1 -Mode Resume -Profile Quick -IncludePatchState -EngagementDirectory .\Engagements\<name>
+```
+
+Management-protocol failures do not imply vulnerability and do not invalidate the core Quick Audit. Targets without a full four-part build remain `PatchStateUnknown`. Patch applicability is reported separately from prerequisites and reproduced impact.
