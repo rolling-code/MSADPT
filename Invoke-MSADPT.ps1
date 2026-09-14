@@ -13,7 +13,7 @@ No Kerberos tickets are requested. No passwords are collected. No directory or r
 modified.
 
 .NOTES
-Version: 1.0.0
+Version: 1.1.3
 #>
 [CmdletBinding()]
 param(
@@ -30,12 +30,15 @@ param(
     [switch]$NoColor,
     [switch]$ForceRerun,
     [switch]$IncludePatchState,
-    [switch]$RetryIncompletePatchTargets
+    [switch]$IncludeKerberosCrypto,
+    [switch]$IncludeKdcTelemetry,
+    [switch]$RetryIncompletePatchTargets,
+    [switch]$IncludeADCS
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$OrchestratorVersion = '1.0.0'
+$OrchestratorVersion = '1.2.6'
 $Root = $PSScriptRoot
 
 function Show {
@@ -155,10 +158,12 @@ $Registry = Get-Content -LiteralPath $RegistryPath -Raw | ConvertFrom-Json -Erro
 $CoverageCatalog = Get-Content -LiteralPath $CoverageCatalogPath -Raw | ConvertFrom-Json -ErrorAction Stop
 $Integrated = @($Registry.Modules | Where-Object { $_.OrchestrationState -eq 'Integrated' })
 $Standalone = @($Registry.Modules | Where-Object { $_.OrchestrationState -eq 'AvailableStandalone' })
+$IntegratedOptional = @($Registry.Modules | Where-Object { $_.OrchestrationState -eq 'IntegratedOptional' })
 
 $QuickModuleIds = @(
     'Invoke-MSADPTKerberosSPNBaselineCollection',
     'Complete-MSADPTKerberosSPNBaseline',
+    'Invoke-MSADPTKerberosCryptographicPosture',
     'Invoke-MSADPTDomainControllerEnumeration'
 )
 $QuickModules = @($Registry.Modules | Where-Object { $_.ModuleId -in $QuickModuleIds })
@@ -172,6 +177,12 @@ if ($Mode -eq 'Plan') {
     Show -State 'PROTOCOLS' -Message 'ADWS/LDAP through the ActiveDirectory module using the current identity or -Credential.' -Color DarkCyan
     Show -State 'MODULES' -Message ($QuickModuleIds -join ', ') -Color DarkCyan
     Show -State 'CHANGES' -Message 'Remote changes=None; local changes=engagement evidence, state, and HTML report.' -Color DarkCyan
+    if ($IncludeADCS) {
+        Show -State 'ADCSPLAN' -Message 'AD CS configuration: selected bootstrap DC over ADWS/LDAP; enterprise CA and template objects, publication, and template ACLs; current identity or -Credential.' -Color Magenta
+        Show -State 'ADCSPORTS' -Message 'ADWS/LDAP through the ActiveDirectory module; ports are environment-defined AD service ports. No direct CA RPC, HTTP, SMB, certificate, or private-key operation.' -Color Magenta
+        Show -State 'ADCSSAFE' -Message 'Read-only directory queries only; timeout behavior is provided by the ActiveDirectory module; remote changes=None; enrollment=None; authentication with certificates=None.' -Color Magenta
+        Show -State 'ADCSLOCAL' -Message 'Local output: ADCSConfigurationCollection evidence, offline facts/correlation, stage state, coverage ledger, and consolidated HTML.' -Color Magenta
+    }
     if ($IncludePatchState) {
         Show -State 'PATCHPLAN' -Message 'After DC inventory: Remote Registry over SMB/RPC (TCP 445, 135, dynamic RPC); CIM fallback over WSMan (TCP 5985/5986).' -Color Magenta
         Show -State 'PATCHSAFE' -Message 'Patch stage is read-only; service starts=None; registry writes=None; patch installation=None; restart=None.' -Color Magenta
@@ -182,6 +193,7 @@ if ($Mode -eq 'Plan') {
         Profile = $Profile
         RegistryModuleCount = [int]$Registry.ModuleCount
         IntegratedModuleCount = $Integrated.Count
+        OptionalIntegratedModuleCount = $IntegratedOptional.Count
         StandaloneModuleCount = $Standalone.Count
         QuickModuleCount = $QuickModules.Count
         AttackFamilyCount = @($CoverageCatalog.Families).Count
@@ -234,6 +246,7 @@ $Plan = [pscustomobject][ordered]@{
         [pscustomobject]@{Module='KerberosSPNBaselineCollection';Target='Current domain and selected writable DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Operation='Read-only AD user, computer, domain, forest, and DC queries'},
         [pscustomobject]@{Module='DomainControllerEnumeration';Target='Selected bootstrap DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Operation='Read-only domain-controller and computer-object metadata queries'}
     )
+    ADCSNetworkOperation = if ($IncludeADCS) { [pscustomobject]@{Module='ADCSConfigurationCollection';Target='Configuration partition through selected bootstrap DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Authentication=if($null-eq$Credential){'CurrentWindowsIdentity'}else{'SuppliedPSCredential'};Timeout='ActiveDirectory module default';Operation='Read-only enterprise CA, template publication, template attributes, and template ACL queries';RemoteChanges='None'} } else { $null }
     RemoteChanges = 'None'
     TicketRequests = 'None'
     PasswordMaterial = 'None'
@@ -257,12 +270,29 @@ $DcEvidenceDirectory = Join-Path $EngagementDirectory 'evidence\DomainController
 $DcJson = Join-Path $DcEvidenceDirectory 'domain-controller-details.json'
 
 $KerberosStagePath = Join-Path $StageDirectory 'kerberos-spn-baseline.json'
+$KerberosCryptoDirectory = Join-Path $EngagementDirectory 'analysis\KerberosEncryptionPrioritization'
+$KerberosCryptoSummary = Join-Path $KerberosCryptoDirectory 'kerberos-encryption-correlation-summary.json'
+$KerberosCryptoReview = Join-Path $KerberosCryptoDirectory 'kerberos-prioritized-account-review.json'
+$KerberosCryptoManifest = Join-Path $EngagementDirectory 'analysis\KerberosCryptographicPosture\bundle-execution-manifest.json'
+$KerberosCryptoStagePath = Join-Path $StageDirectory 'kerberos-cryptographic-posture.json'
 $DcStagePath = Join-Path $StageDirectory 'domain-controller-enumeration.json'
 $PatchStateDirectory = Join-Path $EngagementDirectory 'evidence\DomainControllerPatchState'
 $PatchStateManifest = Join-Path $PatchStateDirectory 'evidence-manifest.json'
 $PatchStateSummary = Join-Path $PatchStateDirectory 'patch-state-summary.json'
 $PatchStateApplicability = Join-Path $PatchStateDirectory 'ad-vulnerability-applicability.json'
 $PatchStagePath = Join-Path $StageDirectory 'domain-controller-patch-state.json'
+$ADCSDirectory = Join-Path $EngagementDirectory 'evidence\ADCSConfigurationCollection'
+$ADCSManifest = Join-Path $ADCSDirectory 'evidence-manifest.json'
+$ADCSTemplateConfiguration = Join-Path $ADCSDirectory 'certificate-template-configuration.json'
+$ADCSTemplateAccess = Join-Path $ADCSDirectory 'certificate-template-access.csv'
+$ADCSAnalysisDirectory = Join-Path $EngagementDirectory 'analysis\ADCSOfflineEvidenceToCandidate'
+$ADCSAnalysisManifest = Join-Path $ADCSAnalysisDirectory 'evidence-manifest.json'
+$ADCSSummary = Join-Path $ADCSAnalysisDirectory 'adcs-offline-pipeline-summary.json'
+$ADCSCandidates = Join-Path $ADCSAnalysisDirectory 'Correlation\adcs-technique-candidates.json'
+$ADCSStagePath = Join-Path $StageDirectory 'adcs-read-only-assessment.json'
+$ADCSExecuted = $false
+$ADCSReused = $false
+$ADCSResult = $null
 $PatchReused = $false
 $PatchExecuted = $false
 $PatchResult = $null
@@ -541,9 +571,70 @@ if ($IncludePatchState) {
     }
 }
 # PATCH-STAGE-END
-$KerberosStageObject = if (Test-Path -LiteralPath $KerberosStagePath) { Get-Content -LiteralPath $KerberosStagePath -Raw | ConvertFrom-Json } else { $null }
+# ADCS-STAGE-BEGIN
+if ($IncludeADCS) {
+    $ADCSComplete = (-not $ForceRerun -and (Test-Path -LiteralPath $ADCSSummary -PathType Leaf) -and (Test-Manifest -ManifestPath $ADCSManifest -BaseDirectory $ADCSDirectory) -and (Test-Manifest -ManifestPath $ADCSAnalysisManifest -BaseDirectory $ADCSAnalysisDirectory))
+    if ($ADCSComplete) {
+        $SkippedModules += 2
+        $ADCSReused = $true
+        $ADCSResult = Get-Content -LiteralPath $ADCSSummary -Raw | ConvertFrom-Json -ErrorAction Stop
+        $ReusedADCSCandidates = @()
+        if (Test-Path -LiteralPath $ADCSCandidates -PathType Leaf) {
+            $ReusedADCSCandidates = @(Get-Content -LiteralPath $ADCSCandidates -Raw | ConvertFrom-Json -ErrorAction Stop)
+        }
+        $ReusedADCSDisposition = if ($ReusedADCSCandidates.Count -gt 0) { 'CandidateDetected' } else { 'Collected' }
+        $ADCSStage = New-StageStatus -ModuleId 'MSADPTQuickAuditADCS' -ModuleVersion '1.0.0' -Disposition $ReusedADCSDisposition
+        $ADCSStage.Stages.PlanningSucceeded=$true; $ADCSStage.Stages.AcquisitionSucceeded=$true; $ADCSStage.Stages.ParsingSucceeded=$true; $ADCSStage.Stages.SemanticAnalysisSucceeded=$true; $ADCSStage.Stages.EvidenceWritten=$true; $ADCSStage.Stages.ManifestVerified=$true
+        $ADCSStage.Result=$ADCSResult; $ADCSStage.CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')
+        Write-JsonDocument -Path $ADCSStagePath -Value $ADCSStage
+        Show -State 'REUSE' -Message 'AD CS collection and offline-correlation manifests verified. Zero-query reuse selected.' -Color Green
+    }
+    elseif ($Mode -in @('Audit','Resume')) {
+        $ADCSStage = New-StageStatus -ModuleId 'MSADPTQuickAuditADCS' -ModuleVersion '1.0.0' -Disposition 'Planned'
+        $ADCSStage.StartedUtc=(Get-Date).ToUniversalTime().ToString('o'); $ADCSStage.Stages.PlanningSucceeded=$true
+        Write-JsonDocument -Path $ADCSStagePath -Value $ADCSStage
+        try {
+            Show -State 'ADCS' -Message "Collecting read-only AD CS directory configuration through $BootstrapServer." -Color Yellow
+            $Collector = Join-Path $Root 'Modules\ADCS\Invoke-MSADPTADCSConfigurationCollection.ps1'
+            $CollectorParams=@{EngagementPath=$EngagementDirectory}; if($null-ne$Credential){$CollectorParams.Credential=$Credential}
+            $CollectionOutput=@(& $Collector @CollectorParams); $LiveModulesExecuted++; $ADCSExecuted=$true
+            if(-not(Test-Manifest -ManifestPath $ADCSManifest -BaseDirectory $ADCSDirectory)){throw 'ADCSCollectionManifestValidationFailed'}
+            Show -State 'ADCS' -Message 'Correlating AD CS evidence offline against the ESC1 through ESC16 prerequisite catalog.' -Color Yellow
+            $Pipeline=Join-Path $Root 'Analysis\ADCS\Invoke-MSADPTADCSEndToEndOfflineAnalysis.ps1'
+            $PipelineParams=@{FactBuilderPath=(Join-Path $Root 'Analysis\ADCS\Convert-MSADPTADCSEvidenceToFacts.ps1');CorrelationEnginePath=(Join-Path $Root 'Analysis\ADCS\Invoke-MSADPTADCSPrerequisiteCorrelation.ps1');CatalogPath=(Join-Path $Root 'Catalogs\ADCS\adcs-technique-prerequisites-v1.0.0.json');TemplateConfigurationPath=$ADCSTemplateConfiguration;TemplateAccessPath=$ADCSTemplateAccess;OutputRoot=$ADCSAnalysisDirectory;NoColor=$NoColor}
+            $PipelineOutput=@(& $Pipeline @PipelineParams); $LiveModulesExecuted++
+            $ADCSResult=@($PipelineOutput|Where-Object{$null-ne$_ -and $null-ne$_.PSObject.Properties['pipelineVersion'] -and [string]$_.status -eq 'Completed'}|Select-Object -Last 1)
+            if($ADCSResult.Count -eq 0){throw 'ADCSPipelineTerminalResultMissing'}; $ADCSResult=$ADCSResult[0]
+            $ManifestValid=Test-Manifest -ManifestPath $ADCSAnalysisManifest -BaseDirectory $ADCSAnalysisDirectory
+            $ADCSStage.Disposition=if($ManifestValid){'CandidateDetected'}else{'Inconclusive'}
+            $ADCSStage.Stages.DiscoverySucceeded=$true; $ADCSStage.Stages.NetworkOperationSucceeded=$true; $ADCSStage.Stages.AcquisitionSucceeded=$true; $ADCSStage.Stages.ParsingSucceeded=$true; $ADCSStage.Stages.SemanticAnalysisSucceeded=$true; $ADCSStage.Stages.BehavioralValidationSucceeded=$false; $ADCSStage.Stages.ImpactReproduced=$false; $ADCSStage.Stages.EvidenceWritten=$true; $ADCSStage.Stages.ManifestVerified=$ManifestValid
+            $ADCSStage.Result=$ADCSResult; $ADCSStage.CompletedUtc=(Get-Date).ToUniversalTime().ToString('o'); Write-JsonDocument -Path $ADCSStagePath -Value $ADCSStage
+        } catch {
+            $ADCSStage.Disposition='Inconclusive'; $ADCSStage.Error=$_.Exception.Message; $ADCSStage.CompletedUtc=(Get-Date).ToUniversalTime().ToString('o'); Write-JsonDocument -Path $ADCSStagePath -Value $ADCSStage
+            $Errors.Add([pscustomobject]@{Module='QuickAuditADCS';Stage='CollectionOrOfflineCorrelation';Error=$_.Exception.Message})
+        }
+    }
+    elseif ($Mode -eq 'Analyze' -and -not $ADCSComplete) { $Errors.Add([pscustomobject]@{Module='QuickAuditADCS';Stage='Analysis';Error='Manifest-backed AD CS evidence is unavailable for offline analysis.'}) }
+}
+# ADCS-STAGE-END
+$KerberosCryptoResult=$null
+$KerberosCryptoComplete=(-not $ForceRerun -and (Test-Path -LiteralPath $KerberosCryptoSummary -PathType Leaf) -and (Test-Path -LiteralPath $KerberosCryptoReview -PathType Leaf))
+if($IncludeKerberosCrypto){
+ if($KerberosCryptoComplete){$SkippedModules++;$KerberosCryptoResult=Get-Content $KerberosCryptoSummary -Raw|ConvertFrom-Json;Write-JsonDocument $KerberosCryptoStagePath ([pscustomobject][ordered]@{Module='KerberosCryptographicPosture';Status='Reused';Disposition=[string]$KerberosCryptoResult.OverallDisposition;CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')})}
+ elseif($Mode -ne 'Analyze'){try{$runner=Join-Path $Root 'Modules\KerberosCryptographicPosture\Invoke-MSADPTKerberosCryptographicPosture.ps1';$kp=@{EngagementDirectory=$EngagementDirectory;Server=$BootstrapServer;IncludeKdcTelemetry=[bool]$IncludeKdcTelemetry;NoColor=$NoColor};if($null-ne$Credential){$kp.Credential=$Credential};$KerberosCryptoResult=&$runner @kp;$LiveModulesExecuted++;Write-JsonDocument $KerberosCryptoStagePath ([pscustomobject][ordered]@{Module='KerberosCryptographicPosture';Status='Completed';Disposition=[string]$KerberosCryptoResult.OverallDisposition;Result=$KerberosCryptoResult;CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')})}catch{$Errors.Add([pscustomobject]@{Module='KerberosCryptographicPosture';Stage='CollectionAndAnalysis';Error=$_.Exception.Message});Write-JsonDocument $KerberosCryptoStagePath ([pscustomobject]@{Module='KerberosCryptographicPosture';Status='Failed';Disposition='Inconclusive';Error=$_.Exception.Message})}}
+}
+$KerberosStageObject = if (Test-Path -LiteralPath $KerberosStagePath) { Get-Content -LiteralPath $KerberosStagePath -Raw | ConvertFrom-Json } else { $null }
+if ($IncludeKerberosCrypto -and (Test-Path -LiteralPath $KerberosCryptoSummary -PathType Leaf) -and $LiveModulesExecuted -eq 0) {
+    Show -State 'REUSE' -Message 'Kerberos cryptographic-posture evidence verified. Collection skipped.' -Color Green
+}
 $DcStageObject = if (Test-Path -LiteralPath $DcStagePath) { Get-Content -LiteralPath $DcStagePath -Raw | ConvertFrom-Json } else { $null }
+$ADCSStageObject = if (Test-Path -LiteralPath $ADCSStagePath) { Get-Content -LiteralPath $ADCSStagePath -Raw | ConvertFrom-Json } else { $null }
 $PatchStageObject = if (Test-Path -LiteralPath $PatchStagePath) { Get-Content -LiteralPath $PatchStagePath -Raw | ConvertFrom-Json } else { $null }
+$PatchMethodErrorCount = 0
+if ($IncludePatchState -and (Test-Path -LiteralPath $PatchStateSummary -PathType Leaf)) {
+    $PatchMethodErrorSummary = Get-Content -LiteralPath $PatchStateSummary -Raw | ConvertFrom-Json -ErrorAction Stop
+    $PatchMethodErrorCount = [int](Get-SafeProperty $PatchMethodErrorSummary 'OperationalErrorCount' 0)
+}
 $ErrorRows = [object[]]$Errors.ToArray()
 $ErrorsPath = Join-Path $EngagementDirectory 'errors\operational-errors.json'
 Write-JsonDocument -Path $ErrorsPath -Value $ErrorRows
@@ -552,12 +643,14 @@ $KerberosDisposition = [string](Get-SafeProperty $KerberosStageObject 'Dispositi
 $DcDisposition = [string](Get-SafeProperty $DcStageObject 'Disposition' 'NotStarted')
 $CoverageRows = @(
     [pscustomobject][ordered]@{Id='Identity.Kerberos';Name='Kerberos and Identity';State=if($KerberosDisposition -eq 'Collected'){'Collected'}else{$KerberosDisposition};Evidence=@($KerberosSummary,$KerberosManifest);Limitations=@('No ticket request or password validation performed.')},
+    [pscustomobject][ordered]@{Id='Identity.Kerberos.Cryptography';Name='Kerberos Cryptographic Posture';State=if(-not $IncludeKerberosCrypto){'NotStarted'}elseif(Test-Path $KerberosCryptoSummary){(Get-Content $KerberosCryptoSummary -Raw|ConvertFrom-Json).OverallDisposition}else{'Inconclusive'};Evidence=@($KerberosCryptoSummary,$KerberosCryptoReview);Limitations=@('Static capability does not prove observed RC4 use; KDC telemetry may be unavailable.')},
     [pscustomobject][ordered]@{Id='Identity.Delegation';Name='Delegation';State=if($KerberosDisposition -eq 'Collected'){'CandidateDetected'}else{$KerberosDisposition};Evidence=@($KerberosSummary);Limitations=@('Configuration candidates require separate behavioral validation.')},
     [pscustomobject][ordered]@{Id='DomainControllers';Name='Domain Controller Inventory';State=$DcDisposition;Evidence=@($DcJson);Limitations=@('Directory metadata only; no service probing or remote execution.')},
-[pscustomobject][ordered]@{Id='PatchIntelligence';Name='Current AD Vulnerabilities';State=if(-not $IncludePatchState){'NotStarted'}elseif($null -ne $PatchStageObject){[string]$PatchStageObject.Disposition}else{'Inconclusive'};Evidence=@($PatchStateSummary,$PatchStateApplicability);Limitations=@('Patch build assessment only; prerequisites and impact are evaluated separately.')}
+    [pscustomobject][ordered]@{Id='ADCS';Name='Active Directory Certificate Services';State=if(-not $IncludeADCS){'NotStarted'}elseif($null-ne$ADCSStageObject){[string]$ADCSStageObject.Disposition}else{'Inconclusive'};Evidence=@($ADCSSummary,$ADCSCandidates,$ADCSManifest,$ADCSAnalysisManifest);Limitations=@('Prerequisite correlation only. No certificate enrollment, certificate authentication, relay, private-key access, template modification, or CA modification was performed.')},
+    [pscustomobject][ordered]@{Id='PatchIntelligence';Name='Current AD Vulnerabilities';State=if(-not $IncludePatchState){'NotStarted'}elseif($null -ne $PatchStageObject){[string]$PatchStageObject.Disposition}else{'Inconclusive'};Evidence=@($PatchStateSummary,$PatchStateApplicability);Limitations=@('Patch build assessment only; prerequisites and impact are evaluated separately.')}
 )
 foreach ($Family in @($CoverageCatalog.Families)) {
-    if ($Family.Id -notin @('Identity.Kerberos','Identity.Delegation')) {
+    if ($Family.Id -notin @('Identity.Kerberos','Identity.Delegation','ADCS')) {
         $CoverageRows += [pscustomobject][ordered]@{Id=$Family.Id;Name=$Family.Name;State='NotStarted';Evidence=@();Limitations=@('Not included in Quick profile.')}
     }
 }
@@ -568,8 +661,10 @@ $Ledger = [pscustomobject][ordered]@{
     Profile = $Profile
     BootstrapServer = $BootstrapServer
     AttackFamilies = $CoverageRows
-    Modules = @($KerberosStageObject,$DcStageObject,$PatchStageObject | Where-Object { $null -ne $_ })
+    Modules = @($KerberosStageObject,$DcStageObject,$PatchStageObject,$ADCSStageObject | Where-Object { $null -ne $_ })
     OperationalErrorCount = $ErrorRows.Count
+    NonFatalCollectionMethodErrorCount = $PatchMethodErrorCount
+    TotalRecordedOperationalIssueCount = ($ErrorRows.Count + $PatchMethodErrorCount)
 }
 Write-JsonDocument -Path $LedgerPath -Value $Ledger
 
@@ -585,6 +680,9 @@ if ($IncludePatchState -and (Test-Path -LiteralPath $PatchStateSummary -PathType
 if ($IncludePatchState -and (Test-Path -LiteralPath $PatchStateApplicability -PathType Leaf)) {
     $PatchApplicabilityRowsForReport = @(Get-Content -LiteralPath $PatchStateApplicability -Raw | ConvertFrom-Json -ErrorAction Stop)
 }
+$FatalOrchestrationErrorCount = $ErrorRows.Count
+$NonFatalCollectionMethodErrorCount = $PatchMethodErrorCount
+$TotalRecordedOperationalIssueCount = $FatalOrchestrationErrorCount + $NonFatalCollectionMethodErrorCount
 $PatchHtml = '<div class="card">Patch-state collection was not selected.</div>'
 if ($IncludePatchState) {
     $PatchTableRows = ($PatchApplicabilityRowsForReport | Sort-Object CVE,HostName | ForEach-Object {
@@ -592,6 +690,13 @@ if ($IncludePatchState) {
     }) -join "`n"
     if ([string]::IsNullOrWhiteSpace($PatchTableRows)) { $PatchTableRows = '<tr><td colspan="5">No patch applicability evidence available.</td></tr>' }
     $PatchHtml = '<div class="card"><b>Targets:</b> {0}<br><b>Full builds:</b> {1}<br><b>Patched assessments:</b> {2}<br><b>Potentially affected builds:</b> {3}<br><b>Unknown assessments:</b> {4}<br><b>Method-attempt errors:</b> {5}</div><table><tr><th>Host</th><th>CVE</th><th>Name</th><th>Patch disposition</th><th>Overall disposition</th></tr>{6}</table>' -f (Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'TargetCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'FullBuildCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'PatchedBuildDetectedCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'PotentiallyAffectedBuildCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'PatchStateUnknownCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'OperationalErrorCount' 0)),$PatchTableRows
+}
+$ADCSHtml = '<div class="card">AD CS collection was not selected.</div>'
+if ($IncludeADCS) {
+    $CandidateRows=@(); if(Test-Path -LiteralPath $ADCSCandidates -PathType Leaf){$CandidateRows=@(Get-Content -LiteralPath $ADCSCandidates -Raw|ConvertFrom-Json -ErrorAction Stop)}
+    $ADCSRows=($CandidateRows|Sort-Object @{Expression={ if ([string]$_.Technique -match '^ESC(\d+)$') { [int]$Matches[1] } else { [int]::MaxValue } }},Technique|ForEach-Object{'<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3}/{4}</td><td>{5}</td></tr>' -f (Convert-HtmlText $_.Technique),(Convert-HtmlText $_.Title),(Convert-HtmlText $_.Disposition),(Convert-HtmlText $_.SatisfiedRequiredCount),(Convert-HtmlText $_.RequiredCount),(Convert-HtmlText $_.SafeFollowUp)}) -join "`n"
+    if([string]::IsNullOrWhiteSpace($ADCSRows)){$ADCSRows='<tr><td colspan="6">No AD CS candidate evidence available.</td></tr>'}
+    $ADCSHtml='<div class="card"><b>Scope:</b> Read-only AD CS directory configuration and offline ESC1-ESC16 prerequisite correlation.<br><b>Automatic enrollment:</b> None<br><b>Certificate authentication:</b> None<br><b>Private-key access:</b> None<br><b>Remote changes:</b> None</div><table><tr><th>Technique</th><th>Title</th><th>Disposition</th><th>Facts</th><th>Recommended validation</th></tr>{0}</table>' -f $ADCSRows
 }
 $DcCount = 0
 if (Test-Path -LiteralPath $DcJson) { $DcCount = @(Get-Content -LiteralPath $DcJson -Raw | ConvertFrom-Json).Count }
@@ -609,20 +714,21 @@ $Html = @"
 <!doctype html><html><head><meta charset="utf-8"><title>MSADPT Quick Audit</title>
 <style>body{font-family:Segoe UI,Arial;margin:32px;color:#17202a}h1,h2{color:#0b5cab}.card{border:1px solid #ccd6dd;border-radius:8px;padding:16px;margin:14px 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd6dd;padding:8px;text-align:left;vertical-align:top}th{background:#eaf2f8}.note{color:#5d6d7e}</style></head><body>
 <h1>MSADPT Quick Audit</h1>
-<div class="card"><b>Mode:</b> $(Convert-HtmlText $Mode)<br><b>Profile:</b> Quick<br><b>Bootstrap DC:</b> $(Convert-HtmlText $BootstrapServer)<br><b>Live modules executed:</b> $LiveModulesExecuted<br><b>Modules reused:</b> $SkippedModules<br><b>Operational errors:</b> $($ErrorRows.Count)<br><b>Remote changes:</b> None<br><b>Ticket requests:</b> None</div>
+<div class="card"><b>Mode:</b> $(Convert-HtmlText $Mode)<br><b>Profile:</b> Quick<br><b>Bootstrap DC:</b> $(Convert-HtmlText $BootstrapServer)<br><b>Live modules executed:</b> $LiveModulesExecuted<br><b>Modules reused:</b> $SkippedModules<br><b>Fatal orchestration errors:</b> $FatalOrchestrationErrorCount<br><b>Nonfatal collection-method errors:</b> $NonFatalCollectionMethodErrorCount<br><b>Total recorded operational issues:</b> $TotalRecordedOperationalIssueCount<br><b>Remote changes:</b> None<br><b>Ticket requests:</b> None</div>
 <h2>Quick Results</h2>
 <div class="card"><b>Domain controllers inventoried:</b> $DcCount<br><b>SPN records:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'SpnRecords' 0))<br><b>User-owned SPNs:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'UserSpnRecords' 0))<br><b>Duplicate SPN groups:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'DuplicateSpnGroups' 0))<br><b>AS-REP candidates:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'AsRepCandidates' 0))<br><b>Kerberoast candidates:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'KerberoastCandidates' 0))<br><b>Delegation candidates:</b> $(Convert-HtmlText (([int](Get-SafeProperty $KerberosCounts 'UnconstrainedDelegationCandidates' 0))+([int](Get-SafeProperty $KerberosCounts 'ConstrainedDelegationCandidates' 0))+([int](Get-SafeProperty $KerberosCounts 'RbcdCandidates' 0))))</div>
 <h2>Coverage</h2><table><tr><th>Attack family</th><th>State</th><th>Limitations</th></tr>$CoverageHtml</table>
+<h2>Active Directory Certificate Services</h2>$ADCSHtml
 <h2>Current AD Vulnerabilities</h2>$PatchHtml
 <h2>Operational Errors</h2><table><tr><th>Module</th><th>Stage</th><th>Error</th></tr>$ErrorHtml</table>
-<h2>Evidence</h2><ul><li><a href="../state/execution-plan.json">Execution plan</a></li><li><a href="../state/coverage-ledger.json">Coverage ledger</a></li><li><a href="../evidence/KerberosSPNBaseline/kerberos-spn-baseline-summary.json">Kerberos summary</a></li><li><a href="../evidence/DomainControllerEnumeration/domain-controller-details.json">Domain-controller inventory</a></li><li><a href="../errors/operational-errors.json">Operational errors</a></li></ul>
+<h2>Kerberos Cryptographic Posture</h2><p>Focused review is evidence triage, not vulnerability confirmation. Static capability is kept separate from observed ticket usage.</p><ul><li><a href="../analysis/KerberosEncryptionPrioritization/kerberos-encryption-correlation-summary.json">Correlation summary</a></li><li><a href="../analysis/KerberosEncryptionPrioritization/kerberos-prioritized-account-review.json">Prioritized account review</a></li></ul><h2>Evidence</h2><ul><li><a href="../state/execution-plan.json">Execution plan</a></li><li><a href="../state/coverage-ledger.json">Coverage ledger</a></li><li><a href="../evidence/KerberosSPNBaseline/kerberos-spn-baseline-summary.json">Kerberos summary</a></li><li><a href="../evidence/DomainControllerEnumeration/domain-controller-details.json">Domain-controller inventory</a></li><li><a href="../analysis/ADCSOfflineEvidenceToCandidate/adcs-offline-pipeline-summary.json">AD CS pipeline summary</a></li><li><a href="../analysis/ADCSOfflineEvidenceToCandidate/Correlation/adcs-technique-candidates.json">AD CS candidates</a></li><li><a href="../evidence/DomainControllerPatchState/patch-state-summary.json">Domain-controller patch-state summary</a></li><li><a href="../evidence/DomainControllerPatchState/ad-vulnerability-applicability.json">AD vulnerability applicability</a></li><li><a href="../errors/operational-errors.json">Operational errors</a></li></ul>
 <p class="note">Configuration and static candidates are leads. Quick Audit does not request tickets, test passwords, authenticate to discovered services, or reproduce security impact.</p></body></html>
 "@
 [IO.File]::WriteAllText($ReportPath,$Html,(New-Object Text.UTF8Encoding($false)))
 
 $OverallStatus = if ($ErrorRows.Count -eq 0) { 'Passed' } elseif ($LiveModulesExecuted -gt 0 -or $SkippedModules -gt 0) { 'PassedWithErrors' } else { 'Failed' }
 Show -State 'REPORT' -Message $ReportPath -Color Cyan
-Show -State 'DONE' -Message "Status=$OverallStatus; live=$LiveModulesExecuted; reused=$SkippedModules; errors=$($ErrorRows.Count)." -Color Green
+Show -State 'DONE' -Message "Status=$OverallStatus; live=$LiveModulesExecuted; reused=$SkippedModules; fatal-errors=$FatalOrchestrationErrorCount; nonfatal-method-errors=$NonFatalCollectionMethodErrorCount." -Color Green
 
 [pscustomobject][ordered]@{
     Status = $OverallStatus
@@ -632,10 +738,18 @@ Show -State 'DONE' -Message "Status=$OverallStatus; live=$LiveModulesExecuted; r
     BootstrapServer = $BootstrapServer
     RegistryModuleCount = [int]$Registry.ModuleCount
     IntegratedModuleCount = $Integrated.Count
+    OptionalIntegratedModuleCount = $IntegratedOptional.Count
     StandaloneModuleCount = $Standalone.Count
     LiveModulesExecuted = $LiveModulesExecuted
     ReusedModuleCount = $SkippedModules
-    OperationalErrorCount = $ErrorRows.Count
+    OperationalErrorCount = $FatalOrchestrationErrorCount
+    NonFatalCollectionMethodErrorCount = $NonFatalCollectionMethodErrorCount
+    TotalRecordedOperationalIssueCount = $TotalRecordedOperationalIssueCount
+    ADCSIncluded = [bool]$IncludeADCS
+    ADCSExecuted = [bool]$ADCSExecuted
+    ADCSReused = [bool]$ADCSReused
+    KerberosCryptographicPostureIncluded = [bool]$IncludeKerberosCrypto
+    KdcTelemetryIncluded = [bool]$IncludeKdcTelemetry
     PatchStateIncluded = [bool]$IncludePatchState
     PatchStateExecuted = [bool]$PatchExecuted
     PatchStateReused = [bool]$PatchReused

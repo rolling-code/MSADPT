@@ -215,3 +215,45 @@ Resume reuses manifest-backed Kerberos, domain-controller, and patch-state evide
 ```
 
 Management-protocol failures do not imply vulnerability and do not invalidate the core Quick Audit. Targets without a full four-part build remain `PatchStateUnknown`. Patch applicability is reported separately from prerequisites and reproduced impact.
+
+$ReadmePath = Join-Path (Get-Location) 'README.md'
+$ReadmeMarker = '## Kerberos Cryptographic Posture'
+
+if (-not (Test-Path -LiteralPath $ReadmePath -PathType Leaf)) {
+    throw "README.md was not found: $ReadmePath"
+}
+
+$ReadmeText = Get-Content -LiteralPath $ReadmePath -Raw
+
+if ($ReadmeText -notmatch :Escape($ReadmeMarker)) {
+    $ReadmeAddition = @'
+
+## Kerberos Cryptographic Posture
+
+MSADPT Quick Audit includes an evidence-first Kerberos cryptographic-posture workflow that separates static encryption capability from observed Kerberos behavior.
+
+The workflow:
+
+- Inventories service-relevant user, computer, and managed service accounts.
+- Classifies explicit AES, RC4, DES, and unconfigured encryption posture.
+- Optionally attempts coverage-aware KDC event telemetry.
+- Preserves unavailable or incomplete KDC telemetry as inconclusive.
+- Correlates static account posture with available behavioral evidence.
+- Prioritizes focused account reviews without treating every RC4-capable account as a vulnerability.
+- Groups broad computer and managed service account observations to avoid flooding the report.
+- Reuses completed evidence during Resume runs.
+- Produces a single consolidated HTML report with links to detailed local JSON and CSV evidence.
+
+Static capability does not prove that RC4 tickets or session keys are in use. MSADPT treats scanner results, account configuration, and passive indicators as validation leads until the relevant behavior and security impact are reproduced.
+
+### Quick Audit
+
+Run the read-only Quick Audit workflow:
+
+```powershell
+.\Invoke-MSADPT.ps1 `
+    -Mode Audit `
+    -Profile Quick `
+    -IncludeKerberosCrypto `
+    -IncludeKdcTelemetry
+```

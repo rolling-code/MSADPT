@@ -23,7 +23,9 @@
         "AS-REP roasting",
         "Kerberoasting",
         "Duplicate SPNs",
-        "Weak ticket encryption"
+        "Weak ticket encryption",
+        "Kerberos encryption posture",
+        "Observed RC4 ticket usage"
       ]
     },
     {

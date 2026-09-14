@@ -1,0 +1,34 @@
+{
+  "schemaVersion": "1.1",
+  "manifestVersion": "1.0.0",
+  "name": "KerberosCryptographicPosture",
+  "moduleVersion": "1.1.0",
+  "description": "Collect static Kerberos encryption posture, optionally attempt KDC telemetry, and prioritize evidence without equating capability with usage.",
+  "executionClass": "read_only",
+  "entryPoint": "Modules/KerberosCryptographicPosture/Invoke-MSADPTKerberosCryptographicPosture.ps1",
+  "acceptedTargetTypes": [
+    "engagement",
+    "domain"
+  ],
+  "requires": [
+    "kerberosSpnBaseline"
+  ],
+  "produces": [
+    "kerberosEncryptionPosture",
+    "kerberosEncryptionPrioritization",
+    "kerberosTelemetryCoverage"
+  ],
+  "requiresHumanApproval": false,
+  "refreshPolicy": {
+    "eligibleWhenInstalledVersionGreaterThanCompletedVersion": true,
+    "preserveSupersededEvidence": true
+  },
+  "doesNotPerform": [
+    "passwordCollection",
+    "passwordValidation",
+    "ticketExtraction",
+    "directoryModification",
+    "remoteExecution",
+    "stateChange"
+  ]
+}

@@ -1,8 +1,8 @@
 {
   "SchemaVersion": "1.0",
-  "GeneratedUtc": "2026-08-31T15:59:32.7524703Z",
+  "GeneratedUtc": "2026-09-14T18:56:03.4325493Z",
   "DefaultExecutionPolicy": "PlanOnlyUnlessIntegrated",
-  "ModuleCount": 67,
+  "ModuleCount": 68,
   "Modules": [
     {
       "ModuleId": "MSADPT_audit_adcs_esc1_esc16",
@@ -250,11 +250,18 @@
       "Category": "ADCS",
       "ComponentType": "Analyzer",
       "EntryPoint": "Analysis/ADCS/Invoke-MSADPTADCSEndToEndOfflineAnalysis.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
       "SafetyClass": "Offline",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "ActivationParameter": "IncludeADCS",
+      "SupportedProfiles": [
+        "Quick"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalAnalyzer",
+      "ExecutionOrder": 60
     },
     {
       "ModuleId": "Invoke-MSADPTADCSESC2ESC15RealEvidence",
@@ -382,11 +389,18 @@
       "Category": "ADCS",
       "ComponentType": "Collector",
       "EntryPoint": "Modules/ADCS/Invoke-MSADPTADCSConfigurationCollection.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
       "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "ActivationParameter": "IncludeADCS",
+      "SupportedProfiles": [
+        "Quick"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalCollector",
+      "ExecutionOrder": 50
     },
     {
       "ModuleId": "Invoke-MSADPTADCSEndToEndRebuild",
@@ -832,7 +846,25 @@
       "ExecutionOrder": 40,
       "ResumeSupported": true,
       "ActivationParameter": "IncludePatchState"
+    },
+    {
+      "ModuleId": "Invoke-MSADPTKerberosCryptographicPosture",
+      "Version": "1.1.0",
+      "Category": "Kerberos",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Modules/KerberosCryptographicPosture/Invoke-MSADPTKerberosCryptographicPosture.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "Integrated",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick"
+      ],
+      "IntegrationRole": "Analyzer",
+      "ExecutionOrder": 25,
+      "ResumeSupported": true
     }
   ],
-  "IntegratedModuleCount": 4
+  "IntegratedModuleCount": 7
 }
