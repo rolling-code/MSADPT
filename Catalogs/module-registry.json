@@ -257,7 +257,8 @@
       "Public": true,
       "ActivationParameter": "IncludeADCS",
       "SupportedProfiles": [
-        "Quick"
+        "Quick",
+        "Full"
       ],
       "ResumeSupported": true,
       "IntegrationRole": "OptionalAnalyzer",
@@ -396,7 +397,8 @@
       "Public": true,
       "ActivationParameter": "IncludeADCS",
       "SupportedProfiles": [
-        "Quick"
+        "Quick",
+        "Full"
       ],
       "ResumeSupported": true,
       "IntegrationRole": "OptionalCollector",
@@ -498,7 +500,8 @@
       "RequiresExplicitApproval": false,
       "Public": true,
       "SupportedProfiles": [
-        "Quick"
+        "Quick",
+        "Full"
       ],
       "IntegrationRole": "Collector",
       "ExecutionOrder": 30,
@@ -516,7 +519,8 @@
       "RequiresExplicitApproval": false,
       "Public": true,
       "SupportedProfiles": [
-        "Quick"
+        "Quick",
+        "Full"
       ],
       "IntegrationRole": "RecoveryAnalyzer",
       "ExecutionOrder": 20,
@@ -534,7 +538,8 @@
       "RequiresExplicitApproval": false,
       "Public": true,
       "SupportedProfiles": [
-        "Quick"
+        "Quick",
+        "Full"
       ],
       "IntegrationRole": "Collector",
       "ExecutionOrder": 10,
@@ -786,11 +791,18 @@
       "Category": "SMB",
       "ComponentType": "Utility",
       "EntryPoint": "Modules/SMB/Invoke-MSADPTSMBSharePivotAssessment-v0.1.1.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
       "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "ActivationParameter": "IncludeSMB",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalCollector",
+      "ExecutionOrder": 32
     },
     {
       "ModuleId": "Invoke-MSADPTKerberoastTicketValidation",
@@ -840,7 +852,8 @@
       "RequiresExplicitApproval": false,
       "Public": true,
       "SupportedProfiles": [
-        "Quick"
+        "Quick",
+        "Full"
       ],
       "IntegrationRole": "OptionalCollector",
       "ExecutionOrder": 40,
@@ -859,7 +872,8 @@
       "RequiresExplicitApproval": false,
       "Public": true,
       "SupportedProfiles": [
-        "Quick"
+        "Quick",
+        "Full"
       ],
       "IntegrationRole": "Analyzer",
       "ExecutionOrder": 25,
@@ -878,12 +892,13 @@
       "Public": true,
       "ActivationParameter": "IncludeADDns",
       "SupportedProfiles": [
-        "Quick"
+        "Quick",
+        "Full"
       ],
       "ResumeSupported": true,
       "IntegrationRole": "OptionalCollectorValidator",
       "ExecutionOrder": 35
     }
   ],
-  "IntegratedModuleCount": 8
+  "IntegratedModuleCount": 9
 }
