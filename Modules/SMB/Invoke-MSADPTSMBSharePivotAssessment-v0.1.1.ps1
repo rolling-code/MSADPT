@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Runs the MSADPT read-only SMB share and pivot-surface assessment in one command.
 
@@ -266,7 +266,7 @@ try {
     if([string]::IsNullOrWhiteSpace($OutputDirectory)){
         $OutputDirectory=Join-Path (Get-Location) ('MSADPT-SMB-Share-Pivot-{0}-{1}'-f([string]$Domain.DNSRoot-replace'[^A-Za-z0-9.-]','_'),(Get-Date -Format'yyyyMMdd-HHmmss'))
     }
-    if(Test-Path $OutputDirectory -PathType Container){if(@(Get-ChildItem $OutputDirectory -Force).Count-gt0){throw"OutputDirectoryNotEmpty: $OutputDirectory"}}
+    if(Test-Path $OutputDirectory -PathType Container){if(@(Get-ChildItem $OutputDirectory -Force).Count-gt0){throw "OutputDirectoryNotEmpty: $OutputDirectory"}}
     New-Item -ItemType Directory -Path $OutputDirectory -Force|Out-Null
 
     Write-Step 'NETWORK' 'Planned live network operations follow.' Magenta
