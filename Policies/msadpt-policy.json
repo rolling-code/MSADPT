@@ -1,12 +1,44 @@
 {
   "schemaVersion": "1.0",
   "policyName": "MSADPT Milestone 2 Read-Only Autonomous Collection",
-  "allowedExecutionClasses": ["read_only"],
-  "blockedExecutionClasses": ["authenticated_access_test", "credential_operation", "state_change", "exploit"],
+  "allowedExecutionClasses": [
+    "read_only"
+  ],
+  "blockedExecutionClasses": [
+    "authenticated_access_test",
+    "credential_operation",
+    "state_change",
+    "exploit"
+  ],
   "requireRegisteredModule": true,
   "requireEvidenceBackedTarget": true,
   "allowArbitraryCommands": false,
   "allowGeneratedCodeExecution": false,
   "maxModulesPerCycle": 1,
-  "humanApprovalRequiredFor": ["authenticated_access_test", "credential_operation", "state_change", "exploit"]
+  "humanApprovalRequiredFor": [
+    "authenticated_access_test",
+    "credential_operation",
+    "state_change",
+    "exploit"
+  ],
+  "adDnsSecurity": {
+    "generatedCanaryEnabled": true,
+    "behavioralValidationRequiresActivationParameter": true,
+    "reservedLabels": [
+      "*",
+      "@",
+      "wpad",
+      "isatap",
+      "_ldap",
+      "_kerberos",
+      "_kpasswd",
+      "_gc",
+      "_msdcs"
+    ],
+    "existingRecordModificationEnabled": false,
+    "automaticCleanupRequired": true,
+    "cleanupVerificationRequired": true,
+    "authorizationContextRequired": true,
+    "impactClaimsRequireReproduction": true
+  }
 }

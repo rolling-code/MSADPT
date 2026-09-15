@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "manifestVersion": "0.1.0",
+  "name": "ADDnsSecurity",
+  "moduleVersion": "0.2.2",
+  "description": "Discovers AD-integrated DNS zones and optionally performs bounded create-read-delete-verify validation.",
+  "executionClass": "bounded_write_with_cleanup",
+  "entryPoint": "Modules/ADDnsSecurity/Invoke-MSADPTADDnsSecurity.ps1",
+  "acceptedTargetTypes": [
+    "engagement",
+    "domain"
+  ],
+  "requiresHumanApproval": false,
+  "activationParameter": "IncludeADDns",
+  "behavioralValidationParameter": "EnableBehavioralValidation",
+  "produces": [
+    "adDnsZones",
+    "adDnsInventory",
+    "adDnsEffectiveWriteContext",
+    "adDnsWriteValidation",
+    "adDnsResolutionValidation",
+    "adDnsCleanupManifest",
+    "adDnsDanglingReferenceCandidates",
+    "adDnsSecuritySummary"
+  ],
+  "doesNotPerform": [
+    "credentialCapture",
+    "relay",
+    "privilegeEscalation",
+    "passwordTesting",
+    "serviceRestart"
+  ]
+}

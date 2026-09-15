@@ -1,0 +1,35 @@
+{
+  "SchemaVersion": "1.0",
+  "Status": "ReferenceManifest",
+  "ManifestVersion": "1.0.0",
+  "BundleVersion": "1.0.0",
+  "Destination": "Modules/KerberosCryptographicPosture",
+  "Backup": null,
+  "Files": [
+    {
+      "File": "Invoke-MSADPTKerberosAccountEncryptionPosture.ps1",
+      "Size": 10960,
+      "SHA256": "91D8C635C79D36146F73FFF1CC27BA330FBD3F4561A45178A6E0FED60DD093BB",
+      "ParserErrorCount": 0
+    },
+    {
+      "File": "Invoke-MSADPTKerberosCryptographicPosture.ps1",
+      "Size": 1574,
+      "SHA256": "836314EB45B9062FAF03BA17E68BA5C5B38CB8172E53EC4C064747F79528E89C",
+      "ParserErrorCount": 0
+    },
+    {
+      "File": "Invoke-MSADPTKerberosEncryptionPrioritization.ps1",
+      "Size": 20118,
+      "SHA256": "951A82823DF548BE38D6015F3EDAA847C300193F13D6B4792DC9E705185DA417",
+      "ParserErrorCount": 0
+    },
+    {
+      "File": "Invoke-MSADPTKerberosEncryptionUsage.ps1",
+      "Size": 13468,
+      "SHA256": "EF6CBC43ACC9D306730546E323DEA696E23B8563CE60330F0C1489FF2C7667B2",
+      "ParserErrorCount": 0
+    }
+  ],
+  "Notes": "Portable repository metadata. Runtime installation paths and timestamps are intentionally excluded."
+}

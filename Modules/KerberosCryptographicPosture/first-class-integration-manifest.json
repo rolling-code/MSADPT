@@ -1,0 +1,15 @@
+{
+  "SchemaVersion": "1.0",
+  "Status": "ReferenceManifest",
+  "ManifestVersion": "1.0.0",
+  "Component": "KerberosCryptographicPosture",
+  "IntegrationState": "IntegratedOptional",
+  "ExecutionClass": "read_only",
+  "KerberosExecutionOrder": 25,
+  "ResumeVisibilityOrdering": "ReportingStageAfterInitialization",
+  "NetworkActivity": "None during installation validation",
+  "ActiveDirectoryQueries": "None during installation validation",
+  "GitOperations": "None",
+  "RemoteChanges": "None",
+  "Notes": "Portable repository metadata. Runtime installation paths, backup paths, timestamps, and machine-specific orchestrator hashes are intentionally excluded."
+}

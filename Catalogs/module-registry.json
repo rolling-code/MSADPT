@@ -1,8 +1,8 @@
 {
   "SchemaVersion": "1.0",
-  "GeneratedUtc": "2026-09-14T18:56:03.4325493Z",
+  "GeneratedUtc": "2026-09-15T00:00:00Z",
   "DefaultExecutionPolicy": "PlanOnlyUnlessIntegrated",
-  "ModuleCount": 68,
+  "ModuleCount": 69,
   "Modules": [
     {
       "ModuleId": "MSADPT_audit_adcs_esc1_esc16",
@@ -524,10 +524,10 @@
     },
     {
       "ModuleId": "Invoke-MSADPTKerberosSPNBaselineCollection",
-      "Version": "0.1.1",
+      "Version": "0.1.2",
       "Category": "Kerberos",
       "ComponentType": "Collector",
-      "EntryPoint": "Modules/Kerberos/Invoke-MSADPTKerberosSPNBaselineCollection-v0.1.1.ps1",
+      "EntryPoint": "Modules/Kerberos/Invoke-MSADPTKerberosSPNBaselineCollection-v0.1.2.ps1",
       "Maturity": "Integrated",
       "OrchestrationState": "Integrated",
       "SafetyClass": "ReadOnlyLive",
@@ -864,7 +864,26 @@
       "IntegrationRole": "Analyzer",
       "ExecutionOrder": 25,
       "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTADDnsSecurity",
+      "Version": "0.2.2",
+      "Category": "NameResolution",
+      "ComponentType": "Validator",
+      "EntryPoint": "Modules/ADDnsSecurity/Invoke-MSADPTADDnsSecurity.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "BoundedWriteWithCleanup",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeADDns",
+      "SupportedProfiles": [
+        "Quick"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalCollectorValidator",
+      "ExecutionOrder": 35
     }
   ],
-  "IntegratedModuleCount": 7
+  "IntegratedModuleCount": 8
 }

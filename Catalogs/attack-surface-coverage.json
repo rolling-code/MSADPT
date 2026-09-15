@@ -139,7 +139,9 @@
         "NBT-NS",
         "mDNS",
         "WPAD",
-        "IPv6 DNS"
+        "IPv6 DNS",
+        "AD-integrated DNS zone discovery",
+        "Low-privileged dnsNode create-read-delete validation"
       ]
     }
   ]

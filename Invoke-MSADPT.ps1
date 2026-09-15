@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 Runs or plans an MSADPT assessment.
 
@@ -13,7 +13,7 @@ No Kerberos tickets are requested. No passwords are collected. No directory or r
 modified.
 
 .NOTES
-Version: 1.1.3
+Version: 1.4.3
 #>
 [CmdletBinding()]
 param(
@@ -33,12 +33,14 @@ param(
     [switch]$IncludeKerberosCrypto,
     [switch]$IncludeKdcTelemetry,
     [switch]$RetryIncompletePatchTargets,
-    [switch]$IncludeADCS
+    [switch]$IncludeADCS,
+    [switch]$IncludeADDns,
+    [switch]$EnableBehavioralValidation
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$OrchestratorVersion = '1.2.6'
+$OrchestratorVersion = '1.4.3'
 $Root = $PSScriptRoot
 
 function Show {
@@ -164,12 +166,14 @@ $QuickModuleIds = @(
     'Invoke-MSADPTKerberosSPNBaselineCollection',
     'Complete-MSADPTKerberosSPNBaseline',
     'Invoke-MSADPTKerberosCryptographicPosture',
-    'Invoke-MSADPTDomainControllerEnumeration'
+    'Invoke-MSADPTDomainControllerEnumeration',
+    'Invoke-MSADPTADDnsSecurity'
 )
 $QuickModules = @($Registry.Modules | Where-Object { $_.ModuleId -in $QuickModuleIds })
 
 Show -State 'START' -Message "MSADPT v$OrchestratorVersion mode=$Mode profile=$Profile" -Color Cyan
-Show -State 'SAFETY' -Message 'Quick Audit performs read-only AD queries only. No ticket request, password collection, remote execution, or directory change.' -Color Yellow
+$SafetyMessage = if ($IncludeADDns -and $EnableBehavioralValidation) { 'Quick Audit includes one bounded temporary AD DNS object create-read-delete-verify operation. No retained record, ticket request, password collection, or remote execution.' } else { 'Quick Audit performs read-only AD queries only. No ticket request, password collection, remote execution, or directory change.' }
+Show -State 'SAFETY' -Message $SafetyMessage -Color Yellow
 
 if ($Mode -eq 'Plan') {
     Show -State 'PREFLIGHT' -Message 'Local checks: PowerShell, ActiveDirectory module, registry, catalog, and writeable engagement path.' -Color DarkCyan
@@ -182,6 +186,11 @@ if ($Mode -eq 'Plan') {
         Show -State 'ADCSPORTS' -Message 'ADWS/LDAP through the ActiveDirectory module; ports are environment-defined AD service ports. No direct CA RPC, HTTP, SMB, certificate, or private-key operation.' -Color Magenta
         Show -State 'ADCSSAFE' -Message 'Read-only directory queries only; timeout behavior is provided by the ActiveDirectory module; remote changes=None; enrollment=None; authentication with certificates=None.' -Color Magenta
         Show -State 'ADCSLOCAL' -Message 'Local output: ADCSConfigurationCollection evidence, offline facts/correlation, stage state, coverage ledger, and consolidated HTML.' -Color Magenta
+    }
+    if ($IncludeADDns) {
+        Show -State 'DNSPLAN' -Message 'AD-integrated DNS: selected writable DC over LDAP TCP/389 or LDAPS TCP/636; RootDSE and DNS partition discovery.' -Color Magenta
+        $DnsSafetyMessage = if ($EnableBehavioralValidation) { 'Bounded validation: create one unique dnsNode, read it back, delete it, and verify absence. No prompt and no retained record.' } else { 'Read-only zone discovery. Behavioral validation not selected.' }
+        Show -State 'DNSSAFE' -Message $DnsSafetyMessage -Color Magenta
     }
     if ($IncludePatchState) {
         Show -State 'PATCHPLAN' -Message 'After DC inventory: Remote Registry over SMB/RPC (TCP 445, 135, dynamic RPC); CIM fallback over WSMan (TCP 5985/5986).' -Color Magenta
@@ -243,11 +252,22 @@ $Plan = [pscustomobject][ordered]@{
     Server = if ([string]::IsNullOrWhiteSpace($Server)) { 'AutoDiscoverWritableDomainController' } else { $Server }
     Authentication = if ($null -eq $Credential) { 'CurrentWindowsIdentity' } else { 'SuppliedPSCredential' }
     NetworkOperations = @(
-        [pscustomobject]@{Module='KerberosSPNBaselineCollection';Target='Current domain and selected writable DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Operation='Read-only AD user, computer, domain, forest, and DC queries'},
+        [pscustomobject]@{Module='KerberosSPNBaselineCollection';Target='Current domain and selected writable DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Operation='Read-only AD user, computer, domain, forest, and DC queries'}
         [pscustomobject]@{Module='DomainControllerEnumeration';Target='Selected bootstrap DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Operation='Read-only domain-controller and computer-object metadata queries'}
+        if($IncludeADDns){
+            [pscustomobject]@{
+                Module='ADDnsSecurity'
+                Target='Selected writable DC and AD-integrated DNS zone'
+                Protocol='LDAP or LDAPS'
+                Ports='TCP/389 or TCP/636'
+                Authentication=if($null-eq$Credential){'CurrentWindowsIdentity'}else{'SuppliedPSCredential'}
+                Operation=if($EnableBehavioralValidation){'Temporary dnsNode create-read-resolve-delete-verify'}else{'Read-only zone, ACL, and inventory discovery'}
+                RemoteChanges=if($EnableBehavioralValidation){'One temporary dnsNode; mandatory deletion and absence verification'}else{'None'}
+            }
+        }
     )
     ADCSNetworkOperation = if ($IncludeADCS) { [pscustomobject]@{Module='ADCSConfigurationCollection';Target='Configuration partition through selected bootstrap DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Authentication=if($null-eq$Credential){'CurrentWindowsIdentity'}else{'SuppliedPSCredential'};Timeout='ActiveDirectory module default';Operation='Read-only enterprise CA, template publication, template attributes, and template ACL queries';RemoteChanges='None'} } else { $null }
-    RemoteChanges = 'None'
+    RemoteChanges = if($IncludeADDns -and $EnableBehavioralValidation){'One temporary AD DNS dnsNode, automatically deleted and verified absent'}else{'None'}
     TicketRequests = 'None'
     PasswordMaterial = 'None'
     LocalChanges = @('Create engagement directories','Write JSON and CSV evidence','Write stage records','Write consolidated HTML report')
@@ -257,7 +277,7 @@ Write-JsonDocument -Path $ExecutionPlanPath -Value $Plan
 Show -State 'IDENTITY' -Message "Identity=$($Plan.CurrentIdentity)" -Color DarkCyan
 Show -State 'NETWORK' -Message 'Kerberos baseline: current domain plus selected writable DC over ADWS/LDAP.' -Color Magenta
 Show -State 'NETWORK' -Message 'DC inventory: selected bootstrap DC over ADWS/LDAP.' -Color Magenta
-Show -State 'CHANGES' -Message 'Remote changes=None; ticket requests=None; password material=None.' -Color Magenta
+Show -State 'CHANGES' -Message "Remote changes=$($Plan.RemoteChanges); ticket requests=None; password material=None." -Color Magenta
 
 if ($Mode -eq 'Analyze') {
     Show -State 'ANALYZE' -Message 'Analyze mode processes existing Quick Audit evidence only.' -Color Yellow
@@ -290,6 +310,11 @@ $ADCSAnalysisManifest = Join-Path $ADCSAnalysisDirectory 'evidence-manifest.json
 $ADCSSummary = Join-Path $ADCSAnalysisDirectory 'adcs-offline-pipeline-summary.json'
 $ADCSCandidates = Join-Path $ADCSAnalysisDirectory 'Correlation\adcs-technique-candidates.json'
 $ADCSStagePath = Join-Path $StageDirectory 'adcs-read-only-assessment.json'
+$ADDnsDirectory = Join-Path $EngagementDirectory 'analysis\ADDnsSecurity'
+$ADDnsSummary = Join-Path $ADDnsDirectory 'ad-dns-security-summary.json'
+$ADDnsStagePath = Join-Path $StageDirectory 'ad-dns-security.json'
+$ADDnsExecuted = $false
+$ADDnsReused = $false
 $ADCSExecuted = $false
 $ADCSReused = $false
 $ADCSResult = $null
@@ -348,7 +373,7 @@ elseif ($Mode -in @('Audit','Resume')) {
         }
         New-Item -ItemType Directory -Path $KerberosDirectory -Force | Out-Null
 
-        $CollectorPath = Join-Path $Root 'Modules\Kerberos\Invoke-MSADPTKerberosSPNBaselineCollection-v0.1.1.ps1'
+        $CollectorPath = Join-Path $Root 'Modules\Kerberos\Invoke-MSADPTKerberosSPNBaselineCollection-v0.1.2.ps1'
         $CollectorParams = @{
             OutputDirectory = $KerberosDirectory
             NoColor = $NoColor
@@ -495,6 +520,41 @@ elseif ($Mode -in @('Audit','Resume')) {
     $Errors.Add([pscustomobject]@{Module='DomainControllerEnumeration';Stage='Planning';Error='Bootstrap server unavailable because Kerberos discovery did not complete.'})
 }
 
+# ADDNS-STAGE-BEGIN
+if ($IncludeADDns) {
+    $ADDnsComplete = $false
+    if(-not $ForceRerun -and (Test-Path -LiteralPath $ADDnsSummary -PathType Leaf)){
+        try{
+            $PriorADDns=Get-Content -LiteralPath $ADDnsSummary -Raw|ConvertFrom-Json -ErrorAction Stop
+            $PriorValidation=Get-Content -LiteralPath (Join-Path $EngagementDirectory 'evidence\ADDnsSecurity\ad-dns-write-validation.json') -Raw|ConvertFrom-Json -ErrorAction Stop
+            $PriorCleanup=Get-Content -LiteralPath (Join-Path $EngagementDirectory 'evidence\ADDnsSecurity\ad-dns-cleanup-manifest.json') -Raw|ConvertFrom-Json -ErrorAction Stop
+            $ADDnsComplete=([string]$PriorADDns.ModuleVersion -eq '0.2.2' -and [string]$PriorADDns.Disposition -in @('BehaviorallyValidated','NotDetected','CandidateDetected') -and ((-not [bool]$PriorValidation.WriteSucceeded) -or [bool]$PriorCleanup.Verified))
+        }catch{$ADDnsComplete=$false}
+    }
+    if ($ADDnsComplete) {
+        $SkippedModules++
+        $ADDnsReused = $true
+        $ADDnsResult = Get-Content -LiteralPath $ADDnsSummary -Raw | ConvertFrom-Json -ErrorAction Stop
+        Write-JsonDocument -Path $ADDnsStagePath -Value ([pscustomobject][ordered]@{Module='ADDnsSecurity';Status='Reused';Disposition=[string]$ADDnsResult.Disposition;Result=$ADDnsResult;CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')})
+        Show -State 'REUSE' -Message 'AD-integrated DNS evidence verified. Collection and validation skipped.' -Color Green
+    }
+    elseif ($Mode -in @('Audit','Resume')) {
+        try {
+            $DnsRunner = Join-Path $Root 'Modules\ADDnsSecurity\Invoke-MSADPTADDnsSecurity.ps1'
+            $DnsParams = @{EngagementDirectory=$EngagementDirectory;Server=$BootstrapServer;EnableBehavioralValidation=[bool]$EnableBehavioralValidation;NoColor=$NoColor}
+            if ($null -ne $Credential) { $DnsParams.Credential=$Credential }
+            $ADDnsResult = & $DnsRunner @DnsParams
+            $ADDnsExecuted = $true
+            $LiveModulesExecuted++
+            Write-JsonDocument -Path $ADDnsStagePath -Value ([pscustomobject][ordered]@{Module='ADDnsSecurity';Status='Completed';Disposition=[string]$ADDnsResult.Disposition;Result=$ADDnsResult;CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')})
+        }
+        catch {
+            $Errors.Add([pscustomobject]@{Module='ADDnsSecurity';Stage='DiscoveryOrValidation';Error=$_.Exception.Message})
+            Write-JsonDocument -Path $ADDnsStagePath -Value ([pscustomobject]@{Module='ADDnsSecurity';Status='Failed';Disposition='Inconclusive';Error=$_.Exception.Message})
+        }
+    }
+}
+# ADDNS-STAGE-END
 # PATCH-STAGE-BEGIN
 if ($IncludePatchState) {
     $PatchComplete = (
@@ -623,12 +683,14 @@ if($IncludeKerberosCrypto){
  if($KerberosCryptoComplete){$SkippedModules++;$KerberosCryptoResult=Get-Content $KerberosCryptoSummary -Raw|ConvertFrom-Json;Write-JsonDocument $KerberosCryptoStagePath ([pscustomobject][ordered]@{Module='KerberosCryptographicPosture';Status='Reused';Disposition=[string]$KerberosCryptoResult.OverallDisposition;CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')})}
  elseif($Mode -ne 'Analyze'){try{$runner=Join-Path $Root 'Modules\KerberosCryptographicPosture\Invoke-MSADPTKerberosCryptographicPosture.ps1';$kp=@{EngagementDirectory=$EngagementDirectory;Server=$BootstrapServer;IncludeKdcTelemetry=[bool]$IncludeKdcTelemetry;NoColor=$NoColor};if($null-ne$Credential){$kp.Credential=$Credential};$KerberosCryptoResult=&$runner @kp;$LiveModulesExecuted++;Write-JsonDocument $KerberosCryptoStagePath ([pscustomobject][ordered]@{Module='KerberosCryptographicPosture';Status='Completed';Disposition=[string]$KerberosCryptoResult.OverallDisposition;Result=$KerberosCryptoResult;CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')})}catch{$Errors.Add([pscustomobject]@{Module='KerberosCryptographicPosture';Stage='CollectionAndAnalysis';Error=$_.Exception.Message});Write-JsonDocument $KerberosCryptoStagePath ([pscustomobject]@{Module='KerberosCryptographicPosture';Status='Failed';Disposition='Inconclusive';Error=$_.Exception.Message})}}
 }
-$KerberosStageObject = if (Test-Path -LiteralPath $KerberosStagePath) { Get-Content -LiteralPath $KerberosStagePath -Raw | ConvertFrom-Json } else { $null }
+$KerberosStageObject = if (Test-Path -LiteralPath $KerberosStagePath) { Get-Content -LiteralPath $KerberosStagePath -Raw | ConvertFrom-Json } else { $null }
+
 if ($IncludeKerberosCrypto -and (Test-Path -LiteralPath $KerberosCryptoSummary -PathType Leaf) -and $LiveModulesExecuted -eq 0) {
     Show -State 'REUSE' -Message 'Kerberos cryptographic-posture evidence verified. Collection skipped.' -Color Green
 }
 $DcStageObject = if (Test-Path -LiteralPath $DcStagePath) { Get-Content -LiteralPath $DcStagePath -Raw | ConvertFrom-Json } else { $null }
 $ADCSStageObject = if (Test-Path -LiteralPath $ADCSStagePath) { Get-Content -LiteralPath $ADCSStagePath -Raw | ConvertFrom-Json } else { $null }
+$ADDnsStageObject = if (Test-Path -LiteralPath $ADDnsStagePath) { Get-Content -LiteralPath $ADDnsStagePath -Raw | ConvertFrom-Json } else { $null }
 $PatchStageObject = if (Test-Path -LiteralPath $PatchStagePath) { Get-Content -LiteralPath $PatchStagePath -Raw | ConvertFrom-Json } else { $null }
 $PatchMethodErrorCount = 0
 if ($IncludePatchState -and (Test-Path -LiteralPath $PatchStateSummary -PathType Leaf)) {
@@ -647,6 +709,7 @@ $CoverageRows = @(
     [pscustomobject][ordered]@{Id='Identity.Delegation';Name='Delegation';State=if($KerberosDisposition -eq 'Collected'){'CandidateDetected'}else{$KerberosDisposition};Evidence=@($KerberosSummary);Limitations=@('Configuration candidates require separate behavioral validation.')},
     [pscustomobject][ordered]@{Id='DomainControllers';Name='Domain Controller Inventory';State=$DcDisposition;Evidence=@($DcJson);Limitations=@('Directory metadata only; no service probing or remote execution.')},
     [pscustomobject][ordered]@{Id='ADCS';Name='Active Directory Certificate Services';State=if(-not $IncludeADCS){'NotStarted'}elseif($null-ne$ADCSStageObject){[string]$ADCSStageObject.Disposition}else{'Inconclusive'};Evidence=@($ADCSSummary,$ADCSCandidates,$ADCSManifest,$ADCSAnalysisManifest);Limitations=@('Prerequisite correlation only. No certificate enrollment, certificate authentication, relay, private-key access, template modification, or CA modification was performed.')},
+    [pscustomobject][ordered]@{Id='NameResolution.ADDns';Name='AD-Integrated DNS';State=if(-not $IncludeADDns){'NotStarted'}elseif($null-ne$ADDnsStageObject){[string]$ADDnsStageObject.Disposition}else{'Inconclusive'};Evidence=@($ADDnsSummary);Limitations=@('DNS write capability does not prove relay, credential capture, privilege escalation, or domain compromise.')},
     [pscustomobject][ordered]@{Id='PatchIntelligence';Name='Current AD Vulnerabilities';State=if(-not $IncludePatchState){'NotStarted'}elseif($null -ne $PatchStageObject){[string]$PatchStageObject.Disposition}else{'Inconclusive'};Evidence=@($PatchStateSummary,$PatchStateApplicability);Limitations=@('Patch build assessment only; prerequisites and impact are evaluated separately.')}
 )
 foreach ($Family in @($CoverageCatalog.Families)) {
@@ -661,7 +724,7 @@ $Ledger = [pscustomobject][ordered]@{
     Profile = $Profile
     BootstrapServer = $BootstrapServer
     AttackFamilies = $CoverageRows
-    Modules = @($KerberosStageObject,$DcStageObject,$PatchStageObject,$ADCSStageObject | Where-Object { $null -ne $_ })
+    Modules = @($KerberosStageObject,$DcStageObject,$PatchStageObject,$ADCSStageObject,$ADDnsStageObject | Where-Object { $null -ne $_ })
     OperationalErrorCount = $ErrorRows.Count
     NonFatalCollectionMethodErrorCount = $PatchMethodErrorCount
     TotalRecordedOperationalIssueCount = ($ErrorRows.Count + $PatchMethodErrorCount)
@@ -710,14 +773,18 @@ $ErrorHtml = ($ErrorRows | ForEach-Object {
 if ([string]::IsNullOrWhiteSpace($ErrorHtml)) { $ErrorHtml = '<tr><td colspan="3">None</td></tr>' }
 
 $ReportPath = Join-Path $EngagementDirectory 'reports\MSADPT-Quick-Audit.html'
+$ADDnsReportDisposition = if ($null -ne $ADDnsStageObject) { [string]$ADDnsStageObject.Disposition } else { 'NotStarted' }
+$ADDnsAuthorizationBreadth=if($null-ne$ADDnsStageObject -and $null-ne$ADDnsStageObject.Result){[string](Get-SafeProperty $ADDnsStageObject.Result 'AuthorizationBreadth' 'Unknown')}else{'Unknown'}
+$ADDnsBroadWrite=if($null-ne$ADDnsStageObject -and $null-ne$ADDnsStageObject.Result){[bool](Get-SafeProperty $ADDnsStageObject.Result 'BroadPrincipalWriteDetected' $false)}else{$false}
 $Html = @"
 <!doctype html><html><head><meta charset="utf-8"><title>MSADPT Quick Audit</title>
 <style>body{font-family:Segoe UI,Arial;margin:32px;color:#17202a}h1,h2{color:#0b5cab}.card{border:1px solid #ccd6dd;border-radius:8px;padding:16px;margin:14px 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd6dd;padding:8px;text-align:left;vertical-align:top}th{background:#eaf2f8}.note{color:#5d6d7e}</style></head><body>
 <h1>MSADPT Quick Audit</h1>
-<div class="card"><b>Mode:</b> $(Convert-HtmlText $Mode)<br><b>Profile:</b> Quick<br><b>Bootstrap DC:</b> $(Convert-HtmlText $BootstrapServer)<br><b>Live modules executed:</b> $LiveModulesExecuted<br><b>Modules reused:</b> $SkippedModules<br><b>Fatal orchestration errors:</b> $FatalOrchestrationErrorCount<br><b>Nonfatal collection-method errors:</b> $NonFatalCollectionMethodErrorCount<br><b>Total recorded operational issues:</b> $TotalRecordedOperationalIssueCount<br><b>Remote changes:</b> None<br><b>Ticket requests:</b> None</div>
+<div class="card"><b>Mode:</b> $(Convert-HtmlText $Mode)<br><b>Profile:</b> Quick<br><b>Bootstrap DC:</b> $(Convert-HtmlText $BootstrapServer)<br><b>Live modules executed:</b> $LiveModulesExecuted<br><b>Modules reused:</b> $SkippedModules<br><b>Operational module errors:</b> $FatalOrchestrationErrorCount<br><b>Nonfatal collection-method errors:</b> $NonFatalCollectionMethodErrorCount<br><b>Total recorded operational issues:</b> $TotalRecordedOperationalIssueCount<br><b>Remote changes:</b> $(Convert-HtmlText $Plan.RemoteChanges)<br><b>Ticket requests:</b> None</div>
 <h2>Quick Results</h2>
 <div class="card"><b>Domain controllers inventoried:</b> $DcCount<br><b>SPN records:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'SpnRecords' 0))<br><b>User-owned SPNs:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'UserSpnRecords' 0))<br><b>Duplicate SPN groups:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'DuplicateSpnGroups' 0))<br><b>AS-REP candidates:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'AsRepCandidates' 0))<br><b>Kerberoast candidates:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'KerberoastCandidates' 0))<br><b>Delegation candidates:</b> $(Convert-HtmlText (([int](Get-SafeProperty $KerberosCounts 'UnconstrainedDelegationCandidates' 0))+([int](Get-SafeProperty $KerberosCounts 'ConstrainedDelegationCandidates' 0))+([int](Get-SafeProperty $KerberosCounts 'RbcdCandidates' 0))))</div>
 <h2>Coverage</h2><table><tr><th>Attack family</th><th>State</th><th>Limitations</th></tr>$CoverageHtml</table>
+<h2>AD-Integrated DNS</h2><div class="card"><b>Disposition:</b> $(Convert-HtmlText $ADDnsReportDisposition)<br><b>Behavioral validation selected:</b> $([bool]$EnableBehavioralValidation)<br><b>Authorization breadth:</b> $(Convert-HtmlText $ADDnsAuthorizationBreadth)<br><b>Broad principal write detected:</b> $ADDnsBroadWrite<br>Successful DNS write capability does not by itself prove relay, credential capture, privilege escalation, or domain compromise.</div><ul><li><a href="../analysis/ADDnsSecurity/ad-dns-security-summary.json">DNS security summary</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-write-validation.json">Write validation evidence</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-cleanup-manifest.json">Cleanup verification</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-effective-write-context.json">Effective authorization context</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-resolution-validation.json">Authoritative resolution validation</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-inventory.json">DNS inventory</a></li><li><a href="../analysis/ADDnsSecurity/ad-dns-dangling-reference-candidates.json">Dangling-reference candidates</a></li></ul>
 <h2>Active Directory Certificate Services</h2>$ADCSHtml
 <h2>Current AD Vulnerabilities</h2>$PatchHtml
 <h2>Operational Errors</h2><table><tr><th>Module</th><th>Stage</th><th>Error</th></tr>$ErrorHtml</table>
@@ -728,7 +795,7 @@ $Html = @"
 
 $OverallStatus = if ($ErrorRows.Count -eq 0) { 'Passed' } elseif ($LiveModulesExecuted -gt 0 -or $SkippedModules -gt 0) { 'PassedWithErrors' } else { 'Failed' }
 Show -State 'REPORT' -Message $ReportPath -Color Cyan
-Show -State 'DONE' -Message "Status=$OverallStatus; live=$LiveModulesExecuted; reused=$SkippedModules; fatal-errors=$FatalOrchestrationErrorCount; nonfatal-method-errors=$NonFatalCollectionMethodErrorCount." -Color Green
+Show -State 'DONE' -Message "Status=$OverallStatus; live=$LiveModulesExecuted; reused=$SkippedModules; operational-errors=$FatalOrchestrationErrorCount; nonfatal-method-errors=$NonFatalCollectionMethodErrorCount." -Color Green
 
 [pscustomobject][ordered]@{
     Status = $OverallStatus
@@ -745,6 +812,10 @@ Show -State 'DONE' -Message "Status=$OverallStatus; live=$LiveModulesExecuted; r
     OperationalErrorCount = $FatalOrchestrationErrorCount
     NonFatalCollectionMethodErrorCount = $NonFatalCollectionMethodErrorCount
     TotalRecordedOperationalIssueCount = $TotalRecordedOperationalIssueCount
+    ADDnsIncluded = [bool]$IncludeADDns
+    ADDnsBehavioralValidationEnabled = [bool]$EnableBehavioralValidation
+    ADDnsExecuted = [bool]$ADDnsExecuted
+    ADDnsReused = [bool]$ADDnsReused
     ADCSIncluded = [bool]$IncludeADCS
     ADCSExecuted = [bool]$ADCSExecuted
     ADCSReused = [bool]$ADCSReused
