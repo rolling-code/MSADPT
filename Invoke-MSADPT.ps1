@@ -3,7 +3,7 @@
 Runs or plans an MSADPT assessment.
 
 .DESCRIPTION
-The Quick profile provides the first operational read-only audit workflow. It performs local
+The Quick profile provides the bounded operational workflow. The Full profile automatically selects every currently first-class integrated read-only assessment family and preserves explicit gating for behavioral validators. It performs local
 preflight, announces the live Active Directory query plan, collects a Kerberos/SPN baseline,
 collects domain-controller directory metadata using the selected bootstrap DC, updates normalized
 stage state and coverage, and writes a consolidated HTML report.
@@ -13,7 +13,7 @@ No Kerberos tickets are requested. No passwords are collected. No directory or r
 modified.
 
 .NOTES
-Version: 1.4.3
+Version: 1.7.0
 #>
 [CmdletBinding()]
 param(
@@ -21,7 +21,7 @@ param(
     [ValidateSet('Plan','Audit','Analyze','Resume')]
     [string]$Mode,
 
-    [ValidateSet('Quick')]
+    [ValidateSet('Quick','Full')]
     [string]$Profile = 'Quick',
 
     [string]$EngagementDirectory,
@@ -35,13 +35,26 @@ param(
     [switch]$RetryIncompletePatchTargets,
     [switch]$IncludeADCS,
     [switch]$IncludeADDns,
+    [switch]$IncludeSMB,
+    [string]$SMBNmapXmlPath,
     [switch]$EnableBehavioralValidation
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$OrchestratorVersion = '1.4.3'
+$OrchestratorVersion = '1.7.0'
 $Root = $PSScriptRoot
+
+# Full automatically selects every assessment family that currently has a validated first-class
+# orchestration contract. Behavioral changes remain controlled by EnableBehavioralValidation.
+if ($Profile -eq 'Full') {
+    $IncludePatchState = $true
+    $IncludeKerberosCrypto = $true
+    $IncludeKdcTelemetry = $true
+    $IncludeADCS = $true
+    $IncludeADDns = $true
+    $IncludeSMB = $true
+}
 
 function Show {
     param(
@@ -172,7 +185,7 @@ $QuickModuleIds = @(
 $QuickModules = @($Registry.Modules | Where-Object { $_.ModuleId -in $QuickModuleIds })
 
 Show -State 'START' -Message "MSADPT v$OrchestratorVersion mode=$Mode profile=$Profile" -Color Cyan
-$SafetyMessage = if ($IncludeADDns -and $EnableBehavioralValidation) { 'Quick Audit includes one bounded temporary AD DNS object create-read-delete-verify operation. No retained record, ticket request, password collection, or remote execution.' } else { 'Quick Audit performs read-only AD queries only. No ticket request, password collection, remote execution, or directory change.' }
+$SafetyMessage = if ($IncludeADDns -and $EnableBehavioralValidation) { "$Profile Audit includes one bounded temporary AD DNS object create-read-delete-verify operation. No retained record, ticket request, password collection, or remote execution." } else { "$Profile Audit performs read-only AD queries only. No ticket request, password collection, remote execution, or directory change." }
 Show -State 'SAFETY' -Message $SafetyMessage -Color Yellow
 
 if ($Mode -eq 'Plan') {
@@ -191,6 +204,12 @@ if ($Mode -eq 'Plan') {
         Show -State 'DNSPLAN' -Message 'AD-integrated DNS: selected writable DC over LDAP TCP/389 or LDAPS TCP/636; RootDSE and DNS partition discovery.' -Color Magenta
         $DnsSafetyMessage = if ($EnableBehavioralValidation) { 'Bounded validation: create one unique dnsNode, read it back, delete it, and verify absence. No prompt and no retained record.' } else { 'Read-only zone discovery. Behavioral validation not selected.' }
         Show -State 'DNSSAFE' -Message $DnsSafetyMessage -Color Magenta
+    }
+    if ($IncludeSMB) {
+        Show -State 'SMBPLAN' -Message 'Targets: discovered domain controllers; TCP/445 reachability, SMB signing posture, nonadministrative share enumeration, SYSVOL/NETLOGON classification, and bounded file-name metadata discovery.' -Color Magenta
+        Show -State 'SMBSAFE' -Message 'Read-only SMB assessment. Content reads=None; write tests=None; credential capture=None; relay attempts=None; remote execution=None.' -Color Magenta
+        Show -State 'SMBINPUT' -Message 'Optional input: -SMBNmapXmlPath <Nmap XML>. If omitted, MSADPT looks for MSADPT-SMB-Discovery.xml in the repository root.' -Color Magenta
+        Show -State 'SMBHINT' -Message 'MSADPT does not run Nmap. Example: nmap -n -Pn -p 445 --open --reason -iL .\MSADPT-Targets.txt -oA .\MSADPT-SMB-Discovery' -Color DarkYellow
     }
     if ($IncludePatchState) {
         Show -State 'PATCHPLAN' -Message 'After DC inventory: Remote Registry over SMB/RPC (TCP 445, 135, dynamic RPC); CIM fallback over WSMan (TCP 5985/5986).' -Color Magenta
@@ -267,6 +286,7 @@ $Plan = [pscustomobject][ordered]@{
         }
     )
     ADCSNetworkOperation = if ($IncludeADCS) { [pscustomobject]@{Module='ADCSConfigurationCollection';Target='Configuration partition through selected bootstrap DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Authentication=if($null-eq$Credential){'CurrentWindowsIdentity'}else{'SuppliedPSCredential'};Timeout='ActiveDirectory module default';Operation='Read-only enterprise CA, template publication, template attributes, and template ACL queries';RemoteChanges='None'} } else { $null }
+    SMBNetworkOperation = if ($IncludeSMB) { [pscustomobject]@{Module='SMBFullAssessment';Target='Discovered domain controllers';Protocol='SMB';Ports='TCP/445';Authentication=if($null-eq$Credential){'CurrentWindowsIdentity'}else{'SuppliedPSCredential'};Operation='TCP reachability, SMB signing posture, share inventory, SYSVOL/NETLOGON classification, bounded filename metadata';ContentReads='None';RemoteChanges='None';RelayAttempts='None';RemoteExecution='None'} } else { $null }
     RemoteChanges = if($IncludeADDns -and $EnableBehavioralValidation){'One temporary AD DNS dnsNode, automatically deleted and verified absent'}else{'None'}
     TicketRequests = 'None'
     PasswordMaterial = 'None'
@@ -313,11 +333,22 @@ $ADCSStagePath = Join-Path $StageDirectory 'adcs-read-only-assessment.json'
 $ADDnsDirectory = Join-Path $EngagementDirectory 'analysis\ADDnsSecurity'
 $ADDnsSummary = Join-Path $ADDnsDirectory 'ad-dns-security-summary.json'
 $ADDnsStagePath = Join-Path $StageDirectory 'ad-dns-security.json'
+$SMBDirectory = Join-Path $EngagementDirectory 'evidence\SMBFullAssessment'
+$SMBCollectorDirectory = Join-Path $SMBDirectory 'Collector'
+$SMBManifest = Join-Path $SMBCollectorDirectory 'evidence-manifest.json'
+$SMBSummary = Join-Path $SMBCollectorDirectory 'smb-share-pivot-summary.json'
+$SMBStagePath = Join-Path $StageDirectory 'smb-full-assessment.json'
+$SMBNmapImportDirectory = Join-Path $SMBDirectory 'NmapImport'
+$SMBNmapImportSummary = Join-Path $SMBNmapImportDirectory 'nmap-smb-import-summary.json'
+$SMBMergedTargetList = Join-Path $SMBDirectory 'smb-merged-targets.txt'
 $ADDnsExecuted = $false
 $ADDnsReused = $false
 $ADCSExecuted = $false
 $ADCSReused = $false
 $ADCSResult = $null
+$SMBExecuted = $false
+$SMBReused = $false
+$SMBResult = $null
 $PatchReused = $false
 $PatchExecuted = $false
 $PatchResult = $null
@@ -555,6 +586,63 @@ if ($IncludeADDns) {
     }
 }
 # ADDNS-STAGE-END
+if ($IncludeSMB) {
+    $ReuseSMB = $Mode -eq 'Resume' -and -not $ForceRerun -and (Test-Manifest -ManifestPath $SMBManifest -ExpectedStatus @('Completed','CompletedWithErrors')) -and (Test-Path -LiteralPath $SMBSummary -PathType Leaf)
+    if ($ReuseSMB) {
+        $SMBResult = Get-Content -LiteralPath $SMBSummary -Raw | ConvertFrom-Json -ErrorAction Stop
+        $SMBReused = $true
+        $SkippedModules++
+        Show -State 'REUSE' -Message 'SMB evidence and manifest verified. Collection skipped.' -Color Cyan
+    }
+    else {
+        if (Test-Path -LiteralPath $SMBDirectory -PathType Container) { Remove-Item -LiteralPath $SMBDirectory -Recurse -Force }
+        $SMBModule = Join-Path $Root 'Modules\SMB\Invoke-MSADPTSMBSharePivotAssessment-v0.1.1.ps1'
+        if (-not (Test-Path -LiteralPath $SMBModule -PathType Leaf)) { throw "SMBModuleMissing: $SMBModule" }
+        Show -State 'SMB' -Message 'Assessing domain-controller TCP/445 reachability, SMB signing, shares, SYSVOL/NETLOGON, and bounded filename metadata.' -Color Cyan
+        $RequestedNmapPath=$SMBNmapXmlPath
+        if([string]::IsNullOrWhiteSpace($RequestedNmapPath)){
+            $ConventionalPath=Join-Path $Root 'MSADPT-SMB-Discovery.xml'
+            if(Test-Path -LiteralPath $ConventionalPath -PathType Leaf){$RequestedNmapPath=$ConventionalPath}
+        }
+        $MergedTargets=New-Object 'Collections.Generic.List[string]'
+        if(Test-Path -LiteralPath $DcJson -PathType Leaf){
+            foreach($Dc in @(Get-Content -LiteralPath $DcJson -Raw|ConvertFrom-Json)){
+                foreach($PropertyName in @('HostName','DNSHostName','Name')){
+                    $Property=$Dc.PSObject.Properties[$PropertyName]
+                    if($null-ne$Property-and-not[string]::IsNullOrWhiteSpace([string]$Property.Value)){$MergedTargets.Add([string]$Property.Value);break}
+                }
+            }
+        }
+        if(-not[string]::IsNullOrWhiteSpace($RequestedNmapPath)){
+            $ResolvedNmapPath=if([IO.Path]::IsPathRooted($RequestedNmapPath)){$RequestedNmapPath}else{Join-Path (Get-Location) $RequestedNmapPath}
+            if(-not(Test-Path -LiteralPath $ResolvedNmapPath -PathType Leaf)){throw "SMBNmapXmlPathNotFound: $ResolvedNmapPath"}
+            Show -State 'SMBINPUT' -Message "Importing operator-generated Nmap XML: $ResolvedNmapPath" -Color Cyan
+            $Importer=Join-Path $Root 'Modules\SMB\Import-MSADPTNmapSMBTargets.ps1'
+            $ImportResult=& $Importer -NmapXmlPath $ResolvedNmapPath -OutputDirectory $SMBNmapImportDirectory
+            foreach($Target in @($ImportResult.Targets)){$MergedTargets.Add([string]$Target)}
+            Show -State 'SMBIMPORT' -Message "Confirmed-open TCP/445 targets imported=$($ImportResult.ConfirmedOpenTcp445TargetCount); rejected host records=$($ImportResult.RejectedHostRecordCount)." -Color Cyan
+        }else{
+            Show -State 'SMBINPUT' -Message 'No local Nmap XML was supplied or found. Continuing with discovered domain controllers.' -Color DarkYellow
+            Show -State 'SMBHINT' -Message 'To extend scope: nmap -n -Pn -p 445 --open --reason -iL .\MSADPT-Targets.txt -oA .\MSADPT-SMB-Discovery' -Color DarkYellow
+            Show -State 'SMBPATH' -Message 'Place MSADPT-SMB-Discovery.xml in the repository root or supply -SMBNmapXmlPath.' -Color DarkYellow
+        }
+        $FinalTargets=@($MergedTargets|Where-Object{-not[string]::IsNullOrWhiteSpace($_)}|Sort-Object -Unique)
+        if($FinalTargets.Count-eq0){throw 'SMBTargetSetEmpty: no domain-controller or confirmed-open Nmap target was available.'}
+        $FinalTargets|Set-Content -LiteralPath $SMBMergedTargetList -Encoding UTF8
+        Show -State 'SMBSCOPE' -Message "Final deduplicated SMB target count=$($FinalTargets.Count)." -Color Cyan
+        foreach($FinalTarget in $FinalTargets){Show -State 'SMBTARGET' -Message "$FinalTarget TCP/445" -Color DarkCyan}
+        $SMBArguments = @{TargetListPath=$SMBMergedTargetList;Server=$BootstrapServer;OutputDirectory=$SMBCollectorDirectory;SkipNmap=$true;NoColor=[bool]$NoColor}
+        if ($null -ne $Credential) { $SMBArguments.Credential=$Credential }
+        $SMBOutput = @(& $SMBModule @SMBArguments)
+        $SMBResult = @($SMBOutput | Where-Object { $null -ne $_ -and $null -ne $_.PSObject.Properties['PackageIdentity'] -and [string]$_.PackageIdentity -eq 'MSADPT-SMB-SHARE-PIVOT-ASSESSMENT' }) | Select-Object -Last 1
+        if ($null -eq $SMBResult) { throw 'SMBTerminalResultMissing' }
+        $SMBExecuted = $true
+        $LiveModulesExecuted++
+        $FatalOrchestrationErrorCount += [int](Get-SafeProperty $SMBResult 'OperationalErrorCount' 0)
+    }
+    Write-JsonDocument -Path $SMBStagePath -Value ([pscustomobject][ordered]@{Module='SMBFullAssessment';Status=if($SMBReused){'Reused'}else{'Completed'};Disposition=if([int](Get-SafeProperty $SMBResult 'SigningOptionalOrDisabledCount' 0)-gt0 -or [int](Get-SafeProperty $SMBResult 'InterestingFileNameLeadCount' 0)-gt0){'CandidateDetected'}else{'Collected'};Result=$SMBResult;CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')})
+}
+
 # PATCH-STAGE-BEGIN
 if ($IncludePatchState) {
     $PatchComplete = (
@@ -714,8 +802,14 @@ $CoverageRows = @(
 )
 foreach ($Family in @($CoverageCatalog.Families)) {
     if ($Family.Id -notin @('Identity.Kerberos','Identity.Delegation','ADCS')) {
-        $CoverageRows += [pscustomobject][ordered]@{Id=$Family.Id;Name=$Family.Name;State='NotStarted';Evidence=@();Limitations=@('Not included in Quick profile.')}
+        $CoverageRows += [pscustomobject][ordered]@{Id=$Family.Id;Name=$Family.Name;State='NotStarted';Evidence=@();Limitations=@(if($Profile -eq 'Quick'){'Not included in Quick profile.'}else{'No validated first-class Full-profile orchestration contract is currently available for this family.'})}
     }
+}
+# Ensure the authoritative SMB stage supersedes any generic NotStarted row.
+if($IncludeSMB){
+    $CoverageRows=@($CoverageRows|Where-Object{[string]$_.Id-ne'SMB.Files'})
+    $SMBState=if($null-eq$SMBResult){'Inconclusive'}elseif([int](Get-SafeProperty $SMBResult 'SigningOptionalOrDisabledCount' 0)-gt0-or[int](Get-SafeProperty $SMBResult 'InterestingFileNameLeadCount' 0)-gt0){'CandidateDetected'}elseif([int](Get-SafeProperty $SMBResult 'OperationalErrorCount' 0)-gt0-and[int](Get-SafeProperty $SMBResult 'ShareCount' 0)-eq0){'Inconclusive'}else{'Collected'}
+    $CoverageRows+=[pscustomobject][ordered]@{Id='SMB.Files';Name='SMB and file exposure';State=$SMBState;Evidence=@($SMBSummary,$SMBManifest,$SMBNmapImportSummary,$SMBMergedTargetList);Limitations=@('Domain controllers are always included. Operator-supplied Nmap XML extends scope only for hosts where TCP/445 is explicitly open. Share enumeration errors and zero returned shares do not prove absence. No write test, relay attempt, or remote execution occurred.')}
 }
 $Ledger = [pscustomobject][ordered]@{
     SchemaVersion = '1.0'
@@ -755,6 +849,10 @@ if ($IncludePatchState) {
     $PatchHtml = '<div class="card"><b>Targets:</b> {0}<br><b>Full builds:</b> {1}<br><b>Patched assessments:</b> {2}<br><b>Potentially affected builds:</b> {3}<br><b>Unknown assessments:</b> {4}<br><b>Method-attempt errors:</b> {5}</div><table><tr><th>Host</th><th>CVE</th><th>Name</th><th>Patch disposition</th><th>Overall disposition</th></tr>{6}</table>' -f (Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'TargetCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'FullBuildCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'PatchedBuildDetectedCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'PotentiallyAffectedBuildCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'PatchStateUnknownCount' 0)),(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'OperationalErrorCount' 0)),$PatchTableRows
 }
 $ADCSHtml = '<div class="card">AD CS collection was not selected.</div>'
+$SMBHtml = if ($IncludeSMB -and $null -ne $SMBResult) {
+    '<div class="card"><b>Targets:</b> {0}<br><b>TCP/445 reachable:</b> {1}<br><b>Signing optional or disabled:</b> {2}<br><b>Shares:</b> {3}<br><b>Accessible share roots:</b> {4}<br><b>Filename metadata entries:</b> {5}<br><b>Interesting filename leads:</b> {6}<br><b>Nmap XML import:</b> Optional operator-supplied evidence; see linked import summary when present.<br><b>Content reads:</b> None<br><b>Remote changes:</b> None<br><b>Relay attempts:</b> None</div><ul><li><a href="../evidence/SMBFullAssessment/Collector/smb-share-pivot-summary.json">SMB summary</a></li><li><a href="../evidence/SMBFullAssessment/Collector/smb-share-inventory.json">Share inventory</a></li><li><a href="../evidence/SMBFullAssessment/Collector/smb-signing-evidence.json">SMB signing evidence</a></li><li><a href="../evidence/SMBFullAssessment/Collector/evidence-manifest.json">Evidence manifest</a></li></ul>' -f @((Get-SafeProperty $SMBResult 'TargetCount' 0),(Get-SafeProperty $SMBResult 'Tcp445ReachableCount' 0),(Get-SafeProperty $SMBResult 'SigningOptionalOrDisabledCount' 0),(Get-SafeProperty $SMBResult 'ShareCount' 0),(Get-SafeProperty $SMBResult 'AccessibleShareCount' 0),(Get-SafeProperty $SMBResult 'MetadataEntryCount' 0),(Get-SafeProperty $SMBResult 'InterestingFileNameLeadCount' 0))
+} else { '<div class="card">SMB assessment was not selected.</div>' }
+
 if ($IncludeADCS) {
     $CandidateRows=@(); if(Test-Path -LiteralPath $ADCSCandidates -PathType Leaf){$CandidateRows=@(Get-Content -LiteralPath $ADCSCandidates -Raw|ConvertFrom-Json -ErrorAction Stop)}
     $ADCSRows=($CandidateRows|Sort-Object @{Expression={ if ([string]$_.Technique -match '^ESC(\d+)$') { [int]$Matches[1] } else { [int]::MaxValue } }},Technique|ForEach-Object{'<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3}/{4}</td><td>{5}</td></tr>' -f (Convert-HtmlText $_.Technique),(Convert-HtmlText $_.Title),(Convert-HtmlText $_.Disposition),(Convert-HtmlText $_.SatisfiedRequiredCount),(Convert-HtmlText $_.RequiredCount),(Convert-HtmlText $_.SafeFollowUp)}) -join "`n"
@@ -772,24 +870,26 @@ $ErrorHtml = ($ErrorRows | ForEach-Object {
 }) -join "`n"
 if ([string]::IsNullOrWhiteSpace($ErrorHtml)) { $ErrorHtml = '<tr><td colspan="3">None</td></tr>' }
 
-$ReportPath = Join-Path $EngagementDirectory 'reports\MSADPT-Quick-Audit.html'
+$ReportFileName=if($Profile -eq 'Full'){'MSADPT-Full-Audit.html'}else{'MSADPT-Quick-Audit.html'}
+$ReportPath = Join-Path $EngagementDirectory ('reports\'+$ReportFileName)
 $ADDnsReportDisposition = if ($null -ne $ADDnsStageObject) { [string]$ADDnsStageObject.Disposition } else { 'NotStarted' }
 $ADDnsAuthorizationBreadth=if($null-ne$ADDnsStageObject -and $null-ne$ADDnsStageObject.Result){[string](Get-SafeProperty $ADDnsStageObject.Result 'AuthorizationBreadth' 'Unknown')}else{'Unknown'}
 $ADDnsBroadWrite=if($null-ne$ADDnsStageObject -and $null-ne$ADDnsStageObject.Result){[bool](Get-SafeProperty $ADDnsStageObject.Result 'BroadPrincipalWriteDetected' $false)}else{$false}
 $Html = @"
-<!doctype html><html><head><meta charset="utf-8"><title>MSADPT Quick Audit</title>
+<!doctype html><html><head><meta charset="utf-8"><title>MSADPT $Profile Audit</title>
 <style>body{font-family:Segoe UI,Arial;margin:32px;color:#17202a}h1,h2{color:#0b5cab}.card{border:1px solid #ccd6dd;border-radius:8px;padding:16px;margin:14px 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd6dd;padding:8px;text-align:left;vertical-align:top}th{background:#eaf2f8}.note{color:#5d6d7e}</style></head><body>
-<h1>MSADPT Quick Audit</h1>
-<div class="card"><b>Mode:</b> $(Convert-HtmlText $Mode)<br><b>Profile:</b> Quick<br><b>Bootstrap DC:</b> $(Convert-HtmlText $BootstrapServer)<br><b>Live modules executed:</b> $LiveModulesExecuted<br><b>Modules reused:</b> $SkippedModules<br><b>Operational module errors:</b> $FatalOrchestrationErrorCount<br><b>Nonfatal collection-method errors:</b> $NonFatalCollectionMethodErrorCount<br><b>Total recorded operational issues:</b> $TotalRecordedOperationalIssueCount<br><b>Remote changes:</b> $(Convert-HtmlText $Plan.RemoteChanges)<br><b>Ticket requests:</b> None</div>
-<h2>Quick Results</h2>
+<h1>MSADPT $Profile Audit</h1>
+<div class="card"><b>Mode:</b> $(Convert-HtmlText $Mode)<br><b>Profile:</b> $(Convert-HtmlText $Profile)<br><b>Bootstrap DC:</b> $(Convert-HtmlText $BootstrapServer)<br><b>Live modules executed:</b> $LiveModulesExecuted<br><b>Modules reused:</b> $SkippedModules<br><b>Operational module errors:</b> $FatalOrchestrationErrorCount<br><b>Nonfatal collection-method errors:</b> $NonFatalCollectionMethodErrorCount<br><b>Total recorded operational issues:</b> $TotalRecordedOperationalIssueCount<br><b>Remote changes:</b> $(Convert-HtmlText $Plan.RemoteChanges)<br><b>Ticket requests:</b> None</div>
+<h2>$Profile Results</h2>
 <div class="card"><b>Domain controllers inventoried:</b> $DcCount<br><b>SPN records:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'SpnRecords' 0))<br><b>User-owned SPNs:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'UserSpnRecords' 0))<br><b>Duplicate SPN groups:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'DuplicateSpnGroups' 0))<br><b>AS-REP candidates:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'AsRepCandidates' 0))<br><b>Kerberoast candidates:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'KerberoastCandidates' 0))<br><b>Delegation candidates:</b> $(Convert-HtmlText (([int](Get-SafeProperty $KerberosCounts 'UnconstrainedDelegationCandidates' 0))+([int](Get-SafeProperty $KerberosCounts 'ConstrainedDelegationCandidates' 0))+([int](Get-SafeProperty $KerberosCounts 'RbcdCandidates' 0))))</div>
 <h2>Coverage</h2><table><tr><th>Attack family</th><th>State</th><th>Limitations</th></tr>$CoverageHtml</table>
 <h2>AD-Integrated DNS</h2><div class="card"><b>Disposition:</b> $(Convert-HtmlText $ADDnsReportDisposition)<br><b>Behavioral validation selected:</b> $([bool]$EnableBehavioralValidation)<br><b>Authorization breadth:</b> $(Convert-HtmlText $ADDnsAuthorizationBreadth)<br><b>Broad principal write detected:</b> $ADDnsBroadWrite<br>Successful DNS write capability does not by itself prove relay, credential capture, privilege escalation, or domain compromise.</div><ul><li><a href="../analysis/ADDnsSecurity/ad-dns-security-summary.json">DNS security summary</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-write-validation.json">Write validation evidence</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-cleanup-manifest.json">Cleanup verification</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-effective-write-context.json">Effective authorization context</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-resolution-validation.json">Authoritative resolution validation</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-inventory.json">DNS inventory</a></li><li><a href="../analysis/ADDnsSecurity/ad-dns-dangling-reference-candidates.json">Dangling-reference candidates</a></li></ul>
+<h2>SMB and File Exposure</h2>$SMBHtml
 <h2>Active Directory Certificate Services</h2>$ADCSHtml
 <h2>Current AD Vulnerabilities</h2>$PatchHtml
 <h2>Operational Errors</h2><table><tr><th>Module</th><th>Stage</th><th>Error</th></tr>$ErrorHtml</table>
-<h2>Kerberos Cryptographic Posture</h2><p>Focused review is evidence triage, not vulnerability confirmation. Static capability is kept separate from observed ticket usage.</p><ul><li><a href="../analysis/KerberosEncryptionPrioritization/kerberos-encryption-correlation-summary.json">Correlation summary</a></li><li><a href="../analysis/KerberosEncryptionPrioritization/kerberos-prioritized-account-review.json">Prioritized account review</a></li></ul><h2>Evidence</h2><ul><li><a href="../state/execution-plan.json">Execution plan</a></li><li><a href="../state/coverage-ledger.json">Coverage ledger</a></li><li><a href="../evidence/KerberosSPNBaseline/kerberos-spn-baseline-summary.json">Kerberos summary</a></li><li><a href="../evidence/DomainControllerEnumeration/domain-controller-details.json">Domain-controller inventory</a></li><li><a href="../analysis/ADCSOfflineEvidenceToCandidate/adcs-offline-pipeline-summary.json">AD CS pipeline summary</a></li><li><a href="../analysis/ADCSOfflineEvidenceToCandidate/Correlation/adcs-technique-candidates.json">AD CS candidates</a></li><li><a href="../evidence/DomainControllerPatchState/patch-state-summary.json">Domain-controller patch-state summary</a></li><li><a href="../evidence/DomainControllerPatchState/ad-vulnerability-applicability.json">AD vulnerability applicability</a></li><li><a href="../errors/operational-errors.json">Operational errors</a></li></ul>
-<p class="note">Configuration and static candidates are leads. Quick Audit does not request tickets, test passwords, authenticate to discovered services, or reproduce security impact.</p></body></html>
+<h2>Kerberos Cryptographic Posture</h2><p>Focused review is evidence triage, not vulnerability confirmation. Static capability is kept separate from observed ticket usage.</p><ul><li><a href="../analysis/KerberosEncryptionPrioritization/kerberos-encryption-correlation-summary.json">Correlation summary</a></li><li><a href="../analysis/KerberosEncryptionPrioritization/kerberos-prioritized-account-review.json">Prioritized account review</a></li></ul><h2>Evidence</h2><ul><li><a href="../state/execution-plan.json">Execution plan</a></li><li><a href="../state/coverage-ledger.json">Coverage ledger</a></li><li><a href="../evidence/KerberosSPNBaseline/kerberos-spn-baseline-summary.json">Kerberos summary</a></li><li><a href="../evidence/DomainControllerEnumeration/domain-controller-details.json">Domain-controller inventory</a></li><li><a href="../evidence/SMBFullAssessment/Collector/smb-share-pivot-summary.json">SMB assessment summary</a></li><li><a href="../analysis/ADCSOfflineEvidenceToCandidate/adcs-offline-pipeline-summary.json">AD CS pipeline summary</a></li><li><a href="../analysis/ADCSOfflineEvidenceToCandidate/Correlation/adcs-technique-candidates.json">AD CS candidates</a></li><li><a href="../evidence/DomainControllerPatchState/patch-state-summary.json">Domain-controller patch-state summary</a></li><li><a href="../evidence/DomainControllerPatchState/ad-vulnerability-applicability.json">AD vulnerability applicability</a></li><li><a href="../errors/operational-errors.json">Operational errors</a></li></ul>
+<p class="note">Configuration and static candidates are leads. The selected profile does not request passwords or automatically reproduce downstream security impact.</p></body></html>
 "@
 [IO.File]::WriteAllText($ReportPath,$Html,(New-Object Text.UTF8Encoding($false)))
 
@@ -821,6 +921,9 @@ Show -State 'DONE' -Message "Status=$OverallStatus; live=$LiveModulesExecuted; r
     ADCSReused = [bool]$ADCSReused
     KerberosCryptographicPostureIncluded = [bool]$IncludeKerberosCrypto
     KdcTelemetryIncluded = [bool]$IncludeKdcTelemetry
+    SMBIncluded = [bool]$IncludeSMB
+    SMBExecuted = [bool]$SMBExecuted
+    SMBReused = [bool]$SMBReused
     PatchStateIncluded = [bool]$IncludePatchState
     PatchStateExecuted = [bool]$PatchExecuted
     PatchStateReused = [bool]$PatchReused
