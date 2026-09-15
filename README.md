@@ -1,31 +1,35 @@
 # MSADPT
 
+MSADPT is an evidence-driven Active Directory security assessment and penetration-testing platform for authorized environments. It combines deterministic discovery, structured evidence collection, bounded behavioral validation, cleanup verification, resumable execution, and consolidated HTML reporting.
+
 ## Installation
 
-MSADPT is an evidence-driven Active Directory security assessment and penetration-testing platform for authorized environments. Clone the repository to a local folder that is not synchronized to a cloud-storage service when unredacted evidence may be produced.
+Clone the repository to a local folder that is not synchronized to cloud storage when assessments may produce unredacted evidence:
 
 ```powershell
 git clone https://github.com/rolling-code/MSADPT.git
 Set-Location .\MSADPT
 ```
 
-Run the release preflight before an assessment:
+Run the public-release preflight before an assessment:
 
 ```powershell
 .\Tests\Offline\Test-MSADPTPublicRelease.ps1
 ```
 
-Start or resume an assessment through the unified entry point:
+Preview the execution plan without running live modules:
 
 ```powershell
-.\Invoke-MSADPT.ps1 -Mode Audit
+.\Invoke-MSADPT.ps1 -Mode Plan -Profile Quick
 ```
+
+Start an assessment through the unified entry point:
 
 ```powershell
-.\Invoke-MSADPT.ps1 -Mode Resume -EngagementDirectory .\Engagements\<engagement-name>
+.\Invoke-MSADPT.ps1 -Mode Audit -Profile Quick
 ```
 
-> The public release candidate is designed for authorized testing. Review the displayed target, port, protocol, authentication, change, and cleanup plan before permitting live stages.
+Review the displayed targets, ports, protocols, authentication method, planned changes, and cleanup actions before permitting live stages.
 
 ## Usage
 
@@ -35,76 +39,201 @@ MSADPT follows a deterministic, evidence-first workflow:
 2. Display planned network operations before execution.
 3. Collect structured evidence using deterministic modules.
 4. Correlate candidates and validate pipeline integrity.
-5. Select bounded behavioral validators only when prerequisites justify them.
-6. Record cleanup and evidence-manifest status separately.
-7. Produce one consolidated HTML report with links to local evidence.
-8. Resume from completed evidence instead of rerunning expensive stages.
+5. Run bounded behavioral validators only when explicitly selected and supported by prerequisites.
+6. Record behavioral results, cleanup status, and evidence integrity separately.
+7. Produce one consolidated HTML report with links to local JSON and CSV evidence.
+8. Resume from completed evidence instead of repeating validated stages.
 
 ### Common examples
 
-Run the default authorized audit workflow:
+Run the default Quick Audit:
 
 ```powershell
-.\Invoke-MSADPT.ps1 -Mode Audit
+.\Invoke-MSADPT.ps1 -Mode Audit -Profile Quick
+```
+
+Resume a prior engagement:
+
+```powershell
+.\Invoke-MSADPT.ps1 `
+    -Mode Resume `
+    -Profile Quick `
+    -EngagementDirectory .\Engagements\<engagement-name>
 ```
 
 Run offline analysis against existing evidence:
 
 ```powershell
-.\Invoke-MSADPT.ps1 -Mode Analyze -EngagementDirectory .\Engagements\<engagement-name>
+.\Invoke-MSADPT.ps1 `
+    -Mode Analyze `
+    -EngagementDirectory .\Engagements\<engagement-name>
 ```
 
-Preview the planned modules and network activity without executing live stages:
+Force selected modules to run again rather than reuse completed evidence:
 
 ```powershell
-.\Invoke-MSADPT.ps1 -Mode Plan
+.\Invoke-MSADPT.ps1 `
+    -Mode Audit `
+    -Profile Quick `
+    -EngagementDirectory .\Engagements\<engagement-name> `
+    -ForceRerun
 ```
 
-## Current capabilities
+## Quick Audit
 
-The project currently includes reusable components for:
+Quick Audit performs local preflight checks, announces planned network activity, collects a Kerberos and SPN baseline, inventories domain controllers, updates the coverage ledger, and writes a consolidated report to:
+
+```text
+<engagement-directory>\reports\MSADPT-Quick-Audit.html
+```
+
+By default, Quick Audit does not request Kerberos tickets, collect password material, authenticate to discovered services, execute remote commands, or modify Active Directory. Optional validators may perform explicitly selected, bounded changes with cleanup verification.
+
+Validate the Quick Audit orchestration contract without contacting Active Directory:
+
+```powershell
+.\Tests\Offline\Test-MSADPTQuickAudit.ps1
+```
+
+## AD-Integrated DNS Validation
+
+MSADPT can inventory AD-integrated DNS zones, analyze the current identity's effective write path, and identify broadly assigned DNS creation permissions.
+
+When behavioral validation is enabled, MSADPT:
+
+- Creates one uniquely named temporary A record.
+- Reads the new `dnsNode` back through LDAP.
+- Verifies the record data and attempts DNS resolution validation.
+- Deletes only the generated record.
+- Confirms that the generated object is absent after cleanup.
+- Records authorization, validation, resolution, and cleanup evidence in the engagement directory.
+
+MSADPT does not automatically select or overwrite an existing production record.
+
+Run the controlled validator through Quick Audit:
+
+```powershell
+.\Invoke-MSADPT.ps1 `
+    -Mode Audit `
+    -Profile Quick `
+    -IncludeADDns `
+    -EnableBehavioralValidation
+```
+
+Target a specific writable domain controller when required:
+
+```powershell
+.\Invoke-MSADPT.ps1 `
+    -Mode Audit `
+    -Profile Quick `
+    -Server 'dc01.example.com' `
+    -IncludeADDns `
+    -EnableBehavioralValidation
+```
+
+A successful DNS write confirms the tested record-creation capability. It does not by itself prove credential capture, NTLM relay, privilege escalation, or domain compromise.
+
+## Kerberos Cryptographic Posture
+
+The optional Kerberos cryptographic-posture workflow separates static encryption capability from observed Kerberos behavior.
+
+It can:
+
+- Inventory service-relevant user, computer, and managed service accounts.
+- Classify explicit AES, RC4, DES, and unconfigured encryption posture.
+- Attempt coverage-aware KDC event telemetry when selected.
+- Preserve unavailable or incomplete telemetry as inconclusive.
+- Correlate static account posture with available behavioral evidence.
+- Prioritize focused account reviews without treating every RC4-capable account as a vulnerability.
+- Group broad computer and managed service account observations to avoid report flooding.
+- Reuse completed evidence during Resume runs.
+
+Run Quick Audit with static Kerberos cryptographic-posture analysis:
+
+```powershell
+.\Invoke-MSADPT.ps1 `
+    -Mode Audit `
+    -Profile Quick `
+    -IncludeKerberosCrypto
+```
+
+Include available KDC telemetry collection:
+
+```powershell
+.\Invoke-MSADPT.ps1 `
+    -Mode Audit `
+    -Profile Quick `
+    -IncludeKerberosCrypto `
+    -IncludeKdcTelemetry
+```
+
+Static capability does not prove that RC4 tickets or session keys are in use. Missing or inaccessible telemetry is reported as inconclusive rather than as confirmed absence.
+
+## Domain-Controller Patch-State Collection
+
+Quick Audit can optionally collect full Windows build evidence from discovered domain controllers and evaluate the local vulnerability catalog:
+
+```powershell
+.\Invoke-MSADPT.ps1 `
+    -Mode Audit `
+    -Profile Quick `
+    -IncludePatchState
+```
+
+The collector announces each target and management method before execution. It uses read-only Remote Registry queries with optional CIM fallback. It does not start services, change registry values, install updates, restart systems, or reproduce CVE impact.
+
+Management-protocol failures do not imply vulnerability. Targets without sufficient build evidence remain `PatchStateUnknown`. Patch applicability is reported separately from vulnerable prerequisites and reproduced impact.
+
+## Current Capabilities
+
+The repository includes reusable components for:
 
 - Active Directory and domain-controller discovery
+- AD-integrated DNS inventory, authorization analysis, controlled record creation, and cleanup verification
 - AD CS collection and ESC1 through ESC16 prerequisite correlation
 - AD CS runtime configuration and candidate planning
 - Kerberos, SPN, AS-REP, delegation, and controlled TGS validation
-- LDAP signing, channel-binding, SMB signing, and relay-prerequisite analysis
+- Kerberos cryptographic-posture analysis and optional KDC telemetry correlation
+- LDAP signing, channel binding, SMB signing, and relay-prerequisite analysis
 - MachineAccountQuota behavioral validation with cleanup verification
 - Active Directory ACL collection, semantic correlation, integrity auditing, and transitive path analysis
 - SMB reachability, signing, share enumeration, and resumable continuation
 - SYSVOL and NETLOGON metadata discovery and replicated-path deduplication
 - Bounded, redacted P1 and P2 content analysis without script execution
-- In-memory PKCS#12/PFX inspection with null and empty-password imports only, ephemeral key storage, no private-key export, no authentication, and no PFX retention
+- In-memory PKCS#12/PFX inspection using null or empty-password imports only, ephemeral key storage, no private-key export, no authentication, and no PFX retention
+- Domain-controller patch-state and vulnerability-applicability analysis
 - Snapshot comparison, evidence manifests, structured operational errors, and offline regression tests
 - Optional local Ollama integration as a non-authoritative reasoning layer
 
-## Optional local Ollama integration
+Modules have different maturity and integration levels. Review the module registry, execution plan, and displayed safety boundaries before enabling live functionality.
 
-Ollama is optional. Deterministic collectors and validators remain authoritative. Ollama may explain evidence, prioritize already-established candidates, and suggest bounded next steps. Ollama must not invent findings, claim that a command ran, or override deterministic dispositions.
+## Optional Local Ollama Integration
 
-Install Ollama from its official distribution, then install a local coding or reasoning model supported by the operator's hardware. Configure the local endpoint and model through the MSADPT policy or integration settings. Do not place credentials, raw secrets, private keys, or unredacted evidence in prompts.
+Ollama is optional. Deterministic collectors and validators remain authoritative. A local model may explain evidence, prioritize already-established candidates, and suggest bounded next steps, but it must not invent findings, claim that a command ran, or override deterministic dispositions.
 
-Example connectivity test:
+Install Ollama from its official distribution, then configure a local model and endpoint through the applicable MSADPT policy or integration settings. Do not place credentials, raw secrets, private keys, or unredacted evidence in prompts.
+
+Test the local integration with:
 
 ```powershell
 .\Tests\Offline\Test-MSADPTOllamaIntegration.ps1
 ```
 
-If Ollama is unavailable, MSADPT continues with deterministic collection, correlation, and reporting.
+If Ollama is unavailable, MSADPT continues with deterministic collection, correlation, validation, and reporting.
 
-## Evidence and safety model
+## Evidence and Safety Model
 
-MSADPT distinguishes among:
+MSADPT uses these dispositions:
 
-- Confirmed
-- Likely or probable
-- Inconclusive
-- Not detected
-- Not applicable
+- **Confirmed**
+- **Likely or probable**
+- **Inconclusive**
+- **Not detected**
+- **Not applicable**
 
-Scanner matches, fingerprints, prerequisite values, and static patterns are leads. A vulnerability is confirmed only when the affected component and conditions are present and the central security impact is reproduced with captured evidence.
+Scanner matches, fingerprints, prerequisite values, static patterns, and configuration observations are leads. A security impact is confirmed only when the affected component and required conditions are present and the central behavior is reproduced with captured evidence.
 
-Every module should report these stages separately where applicable:
+Modules report the following stages separately where applicable:
 
 - Planning
 - Discovery
@@ -118,7 +247,9 @@ Every module should report these stages separately where applicable:
 - Evidence serialization
 - Manifest verification
 
-## Repository layout
+`Not detected` does not mean `confirmed absent`. A compensating control proves only the behavior it directly blocks or observes.
+
+## Repository Layout
 
 ```text
 MSADPT/
@@ -135,125 +266,34 @@ MSADPT/
 └── docs/
 ```
 
-Runtime engagement evidence, transcripts, generated test output, local session state, backups, internal migration files, and organization-specific material are intentionally excluded from the public repository.
+Runtime engagement evidence, transcripts, generated test output, local session state, backups, installation artifacts, internal migration files, and organization-specific material are intentionally excluded from the public repository.
 
 ## Requirements
 
-- Windows PowerShell 5.1 or PowerShell 7, depending on the selected module
-- ActiveDirectory PowerShell module for ADWS-based collection stages
-- Network access to explicitly selected assessment targets for live stages
-- Nmap for modules that collect Nmap-backed protocol evidence
+Requirements depend on the selected modules and may include:
+
+- Windows PowerShell 5.1 or PowerShell 7
+- ActiveDirectory PowerShell module for ADWS-based collection
+- Network access to explicitly selected assessment targets
+- Nmap for Nmap-backed protocol evidence
 - Appropriate authorization and credentials for the selected environment
 - Optional Ollama installation for local, non-authoritative reasoning
 
-## Public-release principles
+## Public-Release Principles
 
-- Environment-neutral source code and examples
-- No organization names, domains, hostnames, identities, addresses, or evidence
+- Environment-neutral source code, fixtures, and examples
+- No organization names, domains, hostnames, identities, network addresses, or assessment evidence
 - No persistent private-key or credential material
 - No automatic password guessing
-- No exploit or write operation without an explicit bounded validator, rollback plan, and cleanup verification
-- Resume completed work instead of repeating broad scans
+- No state-changing validation without explicit activation, bounded scope, planned cleanup, and cleanup verification
+- No automatic modification of existing production DNS records
+- Resume completed evidence instead of repeating broad collection
 - One consolidated report backed by local structured evidence
 
-## Project status
+## Project Status
 
-MSADPT is under active development. Modules that are present in the repository have different maturity levels. Run the release preflight and review the module registry before using live functionality.
+MSADPT is under active development. Modules present in the repository have different maturity levels. Run the public-release preflight and review the module registry before using live functionality.
 
-## License and contributions
+## License and Contributions
 
-Use MSADPT only in environments where testing is authorized. Contributions should include parser validation, offline tests, sanitized fixtures, explicit safety boundaries, and structured evidence outputs.
-## Quick Audit
-
-Run the default bounded read-only assessment from a domain-connected Windows system:
-
-```powershell
-.\Invoke-MSADPT.ps1 -Mode Plan -Profile Quick
-.\Invoke-MSADPT.ps1 -Mode Audit -Profile Quick
-```
-
-Quick Audit performs local preflight, announces the Active Directory query plan, collects a Kerberos/SPN baseline, inventories domain controllers, updates the coverage ledger, and writes `reports\MSADPT-Quick-Audit.html` inside the engagement directory.
-
-Quick Audit does not request Kerberos tickets, collect password material, authenticate to discovered services, execute remote commands, or modify Active Directory.
-
-Resume without repeating completed manifest-backed collection:
-
-```powershell
-.\Invoke-MSADPT.ps1 -Mode Resume -Profile Quick -EngagementDirectory .\Engagements\<engagement-name>
-```
-
-The other published modules remain available as standalone or experimental components until their parameter, evidence, safety, and resume contracts are integrated and deterministically validated.
-Validate the Quick Audit orchestration contract without contacting Active Directory:
-
-```powershell
-.\Tests\Offline\Test-MSADPTQuickAudit.ps1
-```
-### Domain-controller patch-state collection
-
-After Quick Audit produces domain-controller evidence, collect full four-part Windows build evidence and evaluate the local AD vulnerability catalog:
-
-```powershell
-.\Modules\VulnerabilityIntelligence\Invoke-MSADPTDomainControllerPatchState-v0.1.0.ps1 `
-    -DomainControllerEvidencePath .\Engagements\<name>\evidence\DomainControllerEnumeration\domain-controller-details.json `
-    -OutputDirectory .\Engagements\<name>\evidence\DomainControllerPatchState
-```
-
-The collector announces every target and management method before execution. It performs read-only Remote Registry queries with optional CIM fallback. It does not start services, change registry values, install updates, restart systems, or reproduce CVE impact.
-### Quick Audit with current AD vulnerability intelligence
-
-Run the standard Quick Audit plus optional read-only domain-controller patch-state collection:
-
-```powershell
-.\Invoke-MSADPT.ps1 -Mode Plan -Profile Quick -IncludePatchState
-.\Invoke-MSADPT.ps1 -Mode Audit -Profile Quick -IncludePatchState
-```
-
-Resume reuses manifest-backed Kerberos, domain-controller, and patch-state evidence:
-
-```powershell
-.\Invoke-MSADPT.ps1 -Mode Resume -Profile Quick -IncludePatchState -EngagementDirectory .\Engagements\<name>
-```
-
-Management-protocol failures do not imply vulnerability and do not invalidate the core Quick Audit. Targets without a full four-part build remain `PatchStateUnknown`. Patch applicability is reported separately from prerequisites and reproduced impact.
-
-$ReadmePath = Join-Path (Get-Location) 'README.md'
-$ReadmeMarker = '## Kerberos Cryptographic Posture'
-
-if (-not (Test-Path -LiteralPath $ReadmePath -PathType Leaf)) {
-    throw "README.md was not found: $ReadmePath"
-}
-
-$ReadmeText = Get-Content -LiteralPath $ReadmePath -Raw
-
-if ($ReadmeText -notmatch :Escape($ReadmeMarker)) {
-    $ReadmeAddition = @'
-
-## Kerberos Cryptographic Posture
-
-MSADPT Quick Audit includes an evidence-first Kerberos cryptographic-posture workflow that separates static encryption capability from observed Kerberos behavior.
-
-The workflow:
-
-- Inventories service-relevant user, computer, and managed service accounts.
-- Classifies explicit AES, RC4, DES, and unconfigured encryption posture.
-- Optionally attempts coverage-aware KDC event telemetry.
-- Preserves unavailable or incomplete KDC telemetry as inconclusive.
-- Correlates static account posture with available behavioral evidence.
-- Prioritizes focused account reviews without treating every RC4-capable account as a vulnerability.
-- Groups broad computer and managed service account observations to avoid flooding the report.
-- Reuses completed evidence during Resume runs.
-- Produces a single consolidated HTML report with links to detailed local JSON and CSV evidence.
-
-Static capability does not prove that RC4 tickets or session keys are in use. MSADPT treats scanner results, account configuration, and passive indicators as validation leads until the relevant behavior and security impact are reproduced.
-
-### Quick Audit
-
-Run the read-only Quick Audit workflow:
-
-```powershell
-.\Invoke-MSADPT.ps1 `
-    -Mode Audit `
-    -Profile Quick `
-    -IncludeKerberosCrypto `
-    -IncludeKdcTelemetry
-```
+Use MSADPT only in environments where testing is authorized. Contributions should include parser validation, offline tests, sanitized fixtures, explicit safety boundaries, structured evidence, and cleanup verification where state changes are possible.
