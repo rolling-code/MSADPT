@@ -1,0 +1,8 @@
+[CmdletBinding()]param([string]$RepositoryRoot=(Resolve-Path(Join-Path $PSScriptRoot '..\..')).Path)
+Set-StrictMode -Version 2.0;$ErrorActionPreference='Stop'
+$Orchestrator=Join-Path $RepositoryRoot 'Invoke-MSADPT.ps1';$Reducer=Join-Path $RepositoryRoot 'Modules\ObjectControl\Invoke-MSADPTDirectoryControlCandidateReduction-v1.0.4.ps1'
+foreach($Path in @($Orchestrator,$Reducer)){if(-not(Test-Path -LiteralPath $Path -PathType Leaf)){throw "RequiredFileMissing: $Path"};$T=$null;$E=$null;[void][Management.Automation.Language.Parser]::ParseFile($Path,[ref]$T,[ref]$E);if(@($E).Count){throw "ParserFailure[$Path]: $(@($E|ForEach-Object{$_.Message})-join'; ')"}}
+$Text=[IO.File]::ReadAllText($Orchestrator)
+foreach($Marker in @('DirectoryControlReduction','DIRREDUCE','Validation Priority','At-a-glance disposition','Prioritized control families','Platform delegation review','Unresolved identity families','Domain-root replication rights','Collection and interpretation limitations','Evidence links','directory-control-all-eligible-families.csv','directory-control-html-report-contract.json')){if(-not$Text.Contains($Marker)){throw "HtmlIntegrationContractMissing: $Marker"}}
+if($Text.Contains('Directory Control Severity')){throw 'DirectoryControlSeverityLabelForbidden'}
+[pscustomobject][ordered]@{Status='Passed';TestVersion='1.0.0';ReducerVersion='1.0.4';RequiredHtmlSections=7;ParserErrors=0;NetworkActivity='None';RemoteChanges='None'}
