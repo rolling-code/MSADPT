@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
 Runs or plans an MSADPT assessment.
 
@@ -13,7 +13,7 @@ No Kerberos tickets are requested. No passwords are collected. No directory or r
 modified.
 
 .NOTES
-Version: 1.7.0
+Version: 1.10.0
 #>
 [CmdletBinding()]
 param(
@@ -36,13 +36,14 @@ param(
     [switch]$IncludeADCS,
     [switch]$IncludeADDns,
     [switch]$IncludeSMB,
+    [switch]$IncludeDirectoryControl,
     [string]$SMBNmapXmlPath,
     [switch]$EnableBehavioralValidation
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$OrchestratorVersion = '1.7.0'
+$OrchestratorVersion = '1.10.0'
 $Root = $PSScriptRoot
 
 # Full automatically selects every assessment family that currently has a validated first-class
@@ -54,6 +55,7 @@ if ($Profile -eq 'Full') {
     $IncludeADCS = $true
     $IncludeADDns = $true
     $IncludeSMB = $true
+    $IncludeDirectoryControl = $true
 }
 
 function Show {
@@ -104,6 +106,56 @@ function Get-SafeProperty {
     return $Property.Value
 }
 
+function ConvertTo-MSADPTNormalizedSMBResult {
+    param([object]$Result)
+
+    if ($null -eq $Result) { return $null }
+    $Counts = Get-SafeProperty $Result 'Counts' $null
+    $ReadCount = {
+        param([string]$FlatName,[string]$NestedName)
+        $FlatProperty = $Result.PSObject.Properties[$FlatName]
+        if ($null -ne $FlatProperty -and $null -ne $FlatProperty.Value) { return [int]$FlatProperty.Value }
+        return [int](Get-SafeProperty $Counts $NestedName 0)
+    }
+    $Status = [string](Get-SafeProperty $Result 'Status' 'Inconclusive')
+    $TargetCount = & $ReadCount 'TargetCount' 'Targets'
+    $ReachableCount = & $ReadCount 'Tcp445ReachableCount' 'Tcp445Reachable'
+    $SigningCount = & $ReadCount 'SigningOptionalOrDisabledCount' 'SigningOptionalOrDisabled'
+    $ShareCount = & $ReadCount 'ShareCount' 'Shares'
+    $AccessibleCount = & $ReadCount 'AccessibleShareCount' 'RootListAccessibleShares'
+    $MetadataCount = & $ReadCount 'MetadataEntryCount' 'MetadataEntries'
+    $LeadCount = & $ReadCount 'InterestingFileNameLeadCount' 'InterestingFileNameLeads'
+    $ErrorCount = & $ReadCount 'OperationalErrorCount' 'OperationalErrors'
+    $Disposition = if ($SigningCount -gt 0 -or $LeadCount -gt 0) {
+        'CandidateDetected'
+    }
+    elseif ($ErrorCount -gt 0 -and $ShareCount -eq 0) {
+        'Inconclusive'
+    }
+    elseif ($Status -in @('Failed','Inconclusive')) {
+        'Inconclusive'
+    }
+    else {
+        'Collected'
+    }
+
+    return [pscustomobject][ordered]@{
+        SchemaVersion = '1.0'
+        SourceShape = if ($null -ne $Counts) { 'PersistedSummary' } else { 'TerminalResult' }
+        Status = $Status
+        Disposition = $Disposition
+        TargetCount = $TargetCount
+        Tcp445ReachableCount = $ReachableCount
+        SigningOptionalOrDisabledCount = $SigningCount
+        ShareCount = $ShareCount
+        AccessibleShareCount = $AccessibleCount
+        MetadataEntryCount = $MetadataCount
+        InterestingFileNameLeadCount = $LeadCount
+        OperationalErrorCount = $ErrorCount
+        OriginalResult = $Result
+    }
+}
+
 function New-StageStatus {
     param(
         [string]$ModuleId,
@@ -138,12 +190,16 @@ function New-StageStatus {
 }
 
 function Test-Manifest {
-    param([string]$ManifestPath,[string]$BaseDirectory)
+    param(
+        [string]$ManifestPath,
+        [string]$BaseDirectory,
+        [string[]]$ExpectedStatus = @('Completed')
+    )
 
     if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) { return $false }
     try {
         $Manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json -ErrorAction Stop
-        if ([string](Get-SafeProperty $Manifest 'Status') -ne 'Completed') { return $false }
+        if ([string](Get-SafeProperty $Manifest 'Status') -notin @($ExpectedStatus)) { return $false }
         foreach ($FileRecord in @((Get-SafeProperty $Manifest 'Files' @()))) {
             $Name = [string](Get-SafeProperty $FileRecord 'Name')
             if ([string]::IsNullOrWhiteSpace($Name)) { continue }
@@ -192,7 +248,8 @@ if ($Mode -eq 'Plan') {
     Show -State 'PREFLIGHT' -Message 'Local checks: PowerShell, ActiveDirectory module, registry, catalog, and writeable engagement path.' -Color DarkCyan
     Show -State 'NETWORK' -Message 'Targets: current AD domain and one writable DC selected by AD discovery or -Server.' -Color DarkCyan
     Show -State 'PROTOCOLS' -Message 'ADWS/LDAP through the ActiveDirectory module using the current identity or -Credential.' -Color DarkCyan
-    Show -State 'MODULES' -Message ($QuickModuleIds -join ', ') -Color DarkCyan
+    $SelectedModuleIds = if ($Profile -eq 'Full') { @( $Registry.Modules | Where-Object { $SupportedProfilesProperty = $_.PSObject.Properties['SupportedProfiles']; $OrchestrationStateProperty = $_.PSObject.Properties['OrchestrationState']; $null -ne $SupportedProfilesProperty -and $null -ne $OrchestrationStateProperty -and 'Full' -in @($SupportedProfilesProperty.Value) -and [string]$OrchestrationStateProperty.Value -in @('Integrated','IntegratedOptional') } | Sort-Object ExecutionOrder | Select-Object -ExpandProperty ModuleId ) } else { $QuickModuleIds }
+    Show -State 'MODULES' -Message ($SelectedModuleIds -join ', ') -Color DarkCyan
     Show -State 'CHANGES' -Message 'Remote changes=None; local changes=engagement evidence, state, and HTML report.' -Color DarkCyan
     if ($IncludeADCS) {
         Show -State 'ADCSPLAN' -Message 'AD CS configuration: selected bootstrap DC over ADWS/LDAP; enterprise CA and template objects, publication, and template ACLs; current identity or -Credential.' -Color Magenta
@@ -210,6 +267,12 @@ if ($Mode -eq 'Plan') {
         Show -State 'SMBSAFE' -Message 'Read-only SMB assessment. Content reads=None; write tests=None; credential capture=None; relay attempts=None; remote execution=None.' -Color Magenta
         Show -State 'SMBINPUT' -Message 'Optional input: -SMBNmapXmlPath <Nmap XML>. If omitted, MSADPT looks for MSADPT-SMB-Discovery.xml in the repository root.' -Color Magenta
         Show -State 'SMBHINT' -Message 'MSADPT does not run Nmap. Example: nmap -n -Pn -p 445 --open --reason -iL .\MSADPT-Targets.txt -oA .\MSADPT-SMB-Discovery' -Color DarkYellow
+    }
+    if ($IncludeDirectoryControl) {
+        Show -State 'DIRPLAN' -Message 'Targeted high-impact directory objects and security descriptors through the selected writable DC.' -Color Magenta
+        Show -State 'DIRPORTS' -Message 'ADWS/LDAP and the ActiveDirectory provider using environment-defined AD service ports.' -Color Magenta
+        Show -State 'DIRSAFE' -Message 'Read-only object, ACL, trustee, schema, protected-object, and privilege-context queries. Directory changes=None.' -Color Magenta
+        Show -State 'DIRLOCAL' -Message 'Local SID-first normalization, Allow/Deny correlation, identity-neutral candidate reduction, and bounded current-identity graph analysis.' -Color Magenta
     }
     if ($IncludePatchState) {
         Show -State 'PATCHPLAN' -Message 'After DC inventory: Remote Registry over SMB/RPC (TCP 445, 135, dynamic RPC); CIM fallback over WSMan (TCP 5985/5986).' -Color Magenta
@@ -231,7 +294,8 @@ if ($Mode -eq 'Plan') {
 }
 
 if ([string]::IsNullOrWhiteSpace($EngagementDirectory)) {
-    $EngagementDirectory = Join-Path $Root ('Engagements\MSADPT-Quick-Audit-{0}' -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    $DefaultEngagementName = if ($Profile -eq 'Full') { 'MSADPT-Full-Audit-{0}' } else { 'MSADPT-Quick-Audit-{0}' }
+    $EngagementDirectory = Join-Path $Root ($DefaultEngagementName -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
 }
 elseif (-not [IO.Path]::IsPathRooted($EngagementDirectory)) {
     $EngagementDirectory = Join-Path $Root $EngagementDirectory
@@ -286,7 +350,8 @@ $Plan = [pscustomobject][ordered]@{
         }
     )
     ADCSNetworkOperation = if ($IncludeADCS) { [pscustomobject]@{Module='ADCSConfigurationCollection';Target='Configuration partition through selected bootstrap DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Authentication=if($null-eq$Credential){'CurrentWindowsIdentity'}else{'SuppliedPSCredential'};Timeout='ActiveDirectory module default';Operation='Read-only enterprise CA, template publication, template attributes, and template ACL queries';RemoteChanges='None'} } else { $null }
-    SMBNetworkOperation = if ($IncludeSMB) { [pscustomobject]@{Module='SMBFullAssessment';Target='Discovered domain controllers';Protocol='SMB';Ports='TCP/445';Authentication=if($null-eq$Credential){'CurrentWindowsIdentity'}else{'SuppliedPSCredential'};Operation='TCP reachability, SMB signing posture, share inventory, SYSVOL/NETLOGON classification, bounded filename metadata';ContentReads='None';RemoteChanges='None';RelayAttempts='None';RemoteExecution='None'} } else { $null }
+    SMBNetworkOperation = if ($IncludeSMB) { [pscustomobject]@{Module='SMBFullAssessment';Target='Discovered domain controllers plus operator-supplied Nmap-confirmed TCP/445 targets when provided';Protocol='SMB';Ports='TCP/445';Authentication=if($null-eq$Credential){'CurrentWindowsIdentity'}else{'SuppliedPSCredential'};Operation='TCP reachability, SMB signing posture, share inventory, SYSVOL/NETLOGON classification, bounded filename metadata';ContentReads='None';RemoteChanges='None';RelayAttempts='None';RemoteExecution='None'} } else { $null }
+    DirectoryControlNetworkOperation = if ($IncludeDirectoryControl) { [pscustomobject]@{Module='DirectoryControl';Target='Targeted high-impact directory objects through selected writable DC';Protocol='ADWS/LDAP';Ports='Environment-defined AD service ports';Authentication=if($null-eq$Credential){'CurrentWindowsIdentity'}else{'SuppliedPSCredential'};Operation='Read-only object, ACL, trustee SID, schema GUID, and protected-object context collection';RemoteChanges='None'} } else { $null }
     RemoteChanges = if($IncludeADDns -and $EnableBehavioralValidation){'One temporary AD DNS dnsNode, automatically deleted and verified absent'}else{'None'}
     TicketRequests = 'None'
     PasswordMaterial = 'None'
@@ -300,7 +365,7 @@ Show -State 'NETWORK' -Message 'DC inventory: selected bootstrap DC over ADWS/LD
 Show -State 'CHANGES' -Message "Remote changes=$($Plan.RemoteChanges); ticket requests=None; password material=None." -Color Magenta
 
 if ($Mode -eq 'Analyze') {
-    Show -State 'ANALYZE' -Message 'Analyze mode processes existing Quick Audit evidence only.' -Color Yellow
+    Show -State 'ANALYZE' -Message "Analyze mode processes existing $Profile-profile evidence without initiating new live collection." -Color Yellow
 }
 
 $KerberosDirectory = Join-Path $EngagementDirectory 'evidence\KerberosSPNBaseline'
@@ -341,6 +406,25 @@ $SMBStagePath = Join-Path $StageDirectory 'smb-full-assessment.json'
 $SMBNmapImportDirectory = Join-Path $SMBDirectory 'NmapImport'
 $SMBNmapImportSummary = Join-Path $SMBNmapImportDirectory 'nmap-smb-import-summary.json'
 $SMBMergedTargetList = Join-Path $SMBDirectory 'smb-merged-targets.txt'
+$DirectoryControlDirectory = Join-Path $EngagementDirectory 'evidence\DirectoryControl'
+$DirectoryControlManifest = Join-Path $DirectoryControlDirectory 'evidence-manifest.json'
+$DirectoryControlSummary = Join-Path $DirectoryControlDirectory 'directory-control-summary.json'
+$DirectoryControlStagePath = Join-Path $StageDirectory 'directory-control.json'
+$DirectoryControlReductionDirectory = Join-Path $EngagementDirectory 'analysis\DirectoryControlReduction'
+$DirectoryControlReductionManifest = Join-Path $DirectoryControlReductionDirectory 'evidence-manifest.json'
+$DirectoryControlReductionSummary = Join-Path $DirectoryControlReductionDirectory 'directory-control-reduction-summary.json'
+$DirectoryControlHtmlContract = Join-Path $DirectoryControlReductionDirectory 'directory-control-html-report-contract.json'
+$DirectoryControlPrioritizedFamilies = Join-Path $DirectoryControlReductionDirectory 'directory-control-prioritized-families.csv'
+$DirectoryControlAllFamilies = Join-Path $DirectoryControlReductionDirectory 'directory-control-all-eligible-families.csv'
+$DirectoryControlSidSummary = Join-Path $DirectoryControlReductionDirectory 'directory-control-sid-resolution-summary.csv'
+$DirectoryControlReplicationRights = Join-Path $DirectoryControlReductionDirectory 'directory-control-domain-replication-rights.csv'
+$DirectoryControlReductionExecuted = $false
+$DirectoryControlReductionReused = $false
+$DirectoryControlReductionResult = $null
+$DirectoryControlExecuted = $false
+$DirectoryControlReused = $false
+$DirectoryControlResult = $null
+
 $ADDnsExecuted = $false
 $ADDnsReused = $false
 $ADCSExecuted = $false
@@ -349,6 +433,8 @@ $ADCSResult = $null
 $SMBExecuted = $false
 $SMBReused = $false
 $SMBResult = $null
+$SMBNormalizedResult = $null
+$SMBMethodErrorCount = 0
 $PatchReused = $false
 $PatchExecuted = $false
 $PatchResult = $null
@@ -587,9 +673,11 @@ if ($IncludeADDns) {
 }
 # ADDNS-STAGE-END
 if ($IncludeSMB) {
-    $ReuseSMB = $Mode -eq 'Resume' -and -not $ForceRerun -and (Test-Manifest -ManifestPath $SMBManifest -ExpectedStatus @('Completed','CompletedWithErrors')) -and (Test-Path -LiteralPath $SMBSummary -PathType Leaf)
+    $ReuseSMB = $Mode -eq 'Resume' -and -not $ForceRerun -and (Test-Manifest -ManifestPath $SMBManifest -BaseDirectory $SMBCollectorDirectory -ExpectedStatus @('Completed','CompletedWithErrors')) -and (Test-Path -LiteralPath $SMBSummary -PathType Leaf)
     if ($ReuseSMB) {
         $SMBResult = Get-Content -LiteralPath $SMBSummary -Raw | ConvertFrom-Json -ErrorAction Stop
+        $SMBNormalizedResult = ConvertTo-MSADPTNormalizedSMBResult -Result $SMBResult
+        $SMBMethodErrorCount = [int]$SMBNormalizedResult.OperationalErrorCount
         $SMBReused = $true
         $SkippedModules++
         Show -State 'REUSE' -Message 'SMB evidence and manifest verified. Collection skipped.' -Color Cyan
@@ -606,8 +694,8 @@ if ($IncludeSMB) {
         }
         $MergedTargets=New-Object 'Collections.Generic.List[string]'
         if(Test-Path -LiteralPath $DcJson -PathType Leaf){
-            foreach($Dc in @(Get-Content -LiteralPath $DcJson -Raw|ConvertFrom-Json)){
-                foreach($PropertyName in @('HostName','DNSHostName','Name')){
+            foreach ($Dc in @(Get-Content -LiteralPath $DcJson -Raw|ConvertFrom-Json)){
+                foreach ($PropertyName in @('HostName','DNSHostName','Name')){
                     $Property=$Dc.PSObject.Properties[$PropertyName]
                     if($null-ne$Property-and-not[string]::IsNullOrWhiteSpace([string]$Property.Value)){$MergedTargets.Add([string]$Property.Value);break}
                 }
@@ -619,7 +707,7 @@ if ($IncludeSMB) {
             Show -State 'SMBINPUT' -Message "Importing operator-generated Nmap XML: $ResolvedNmapPath" -Color Cyan
             $Importer=Join-Path $Root 'Modules\SMB\Import-MSADPTNmapSMBTargets.ps1'
             $ImportResult=& $Importer -NmapXmlPath $ResolvedNmapPath -OutputDirectory $SMBNmapImportDirectory
-            foreach($Target in @($ImportResult.Targets)){$MergedTargets.Add([string]$Target)}
+            foreach ($Target in @($ImportResult.Targets)){$MergedTargets.Add([string]$Target)}
             Show -State 'SMBIMPORT' -Message "Confirmed-open TCP/445 targets imported=$($ImportResult.ConfirmedOpenTcp445TargetCount); rejected host records=$($ImportResult.RejectedHostRecordCount)." -Color Cyan
         }else{
             Show -State 'SMBINPUT' -Message 'No local Nmap XML was supplied or found. Continuing with discovered domain controllers.' -Color DarkYellow
@@ -630,7 +718,7 @@ if ($IncludeSMB) {
         if($FinalTargets.Count-eq0){throw 'SMBTargetSetEmpty: no domain-controller or confirmed-open Nmap target was available.'}
         $FinalTargets|Set-Content -LiteralPath $SMBMergedTargetList -Encoding UTF8
         Show -State 'SMBSCOPE' -Message "Final deduplicated SMB target count=$($FinalTargets.Count)." -Color Cyan
-        foreach($FinalTarget in $FinalTargets){Show -State 'SMBTARGET' -Message "$FinalTarget TCP/445" -Color DarkCyan}
+        foreach ($FinalTarget in $FinalTargets){Show -State 'SMBTARGET' -Message "$FinalTarget TCP/445" -Color DarkCyan}
         $SMBArguments = @{TargetListPath=$SMBMergedTargetList;Server=$BootstrapServer;OutputDirectory=$SMBCollectorDirectory;SkipNmap=$true;NoColor=[bool]$NoColor}
         if ($null -ne $Credential) { $SMBArguments.Credential=$Credential }
         $SMBOutput = @(& $SMBModule @SMBArguments)
@@ -638,10 +726,118 @@ if ($IncludeSMB) {
         if ($null -eq $SMBResult) { throw 'SMBTerminalResultMissing' }
         $SMBExecuted = $true
         $LiveModulesExecuted++
-        $FatalOrchestrationErrorCount += [int](Get-SafeProperty $SMBResult 'OperationalErrorCount' 0)
+        $SMBNormalizedResult = ConvertTo-MSADPTNormalizedSMBResult -Result $SMBResult
+        $SMBMethodErrorCount = [int]$SMBNormalizedResult.OperationalErrorCount
     }
-    Write-JsonDocument -Path $SMBStagePath -Value ([pscustomobject][ordered]@{Module='SMBFullAssessment';Status=if($SMBReused){'Reused'}else{'Completed'};Disposition=if([int](Get-SafeProperty $SMBResult 'SigningOptionalOrDisabledCount' 0)-gt0 -or [int](Get-SafeProperty $SMBResult 'InterestingFileNameLeadCount' 0)-gt0){'CandidateDetected'}else{'Collected'};Result=$SMBResult;CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')})
+    Write-JsonDocument -Path $SMBStagePath -Value ([pscustomobject][ordered]@{Module='SMBFullAssessment';Status=if($SMBReused){'Reused'}else{'Completed'};Disposition=[string]$SMBNormalizedResult.Disposition;Result=$SMBResult;NormalizedResult=$SMBNormalizedResult;CompletedUtc=(Get-Date).ToUniversalTime().ToString('o')})
 }
+
+# DIRECTORY-CONTROL-STAGE-BEGIN
+if ($IncludeDirectoryControl) {
+    $DirectoryControlComplete = (
+        -not $ForceRerun -and
+        (Test-Path -LiteralPath $DirectoryControlSummary -PathType Leaf) -and
+        (Test-Manifest -ManifestPath $DirectoryControlManifest -BaseDirectory $DirectoryControlDirectory -ExpectedStatus @('Completed','CompletedWithErrors'))
+    )
+    if ($DirectoryControlComplete) {
+        $DirectoryControlResult = Get-Content -LiteralPath $DirectoryControlSummary -Raw | ConvertFrom-Json -ErrorAction Stop
+        $DirectoryControlReused = $true
+        $SkippedModules++
+        Show -State 'REUSE' -Message 'Directory-control evidence and manifest verified. Collection skipped.' -Color Green
+    }
+    elseif ($Mode -in @('Audit','Resume')) {
+        try {
+            if (Test-Path -LiteralPath $DirectoryControlDirectory -PathType Container) {
+                $ExistingDirectoryControlFiles = @(Get-ChildItem -LiteralPath $DirectoryControlDirectory -Force -ErrorAction SilentlyContinue)
+                if ($ExistingDirectoryControlFiles.Count -gt 0) {
+                    $DirectoryControlArchive = $DirectoryControlDirectory + '.superseded-' + (Get-Date -Format 'yyyyMMdd-HHmmss')
+                    Move-Item -LiteralPath $DirectoryControlDirectory -Destination $DirectoryControlArchive
+                }
+            }
+            $DirectoryControlRunner = Join-Path $Root 'Modules\ObjectControl\Invoke-MSADPTDirectoryControlAssessment-v1.0.0.ps1'
+            if (-not (Test-Path -LiteralPath $DirectoryControlRunner -PathType Leaf)) {
+                throw "DirectoryControlModuleMissing: $DirectoryControlRunner"
+            }
+            Show -State 'DIRRUN' -Message "Collecting targeted high-impact directory objects and ACLs through $BootstrapServer." -Color Yellow
+            $DirectoryControlParameters = @{
+                Server = $BootstrapServer
+                OutputDirectory = $DirectoryControlDirectory
+                StartingIdentity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+                NoColor = [bool]$NoColor
+            }
+            if ($null -ne $Credential) { $DirectoryControlParameters.Credential = $Credential }
+            $DirectoryControlOutput = @(& $DirectoryControlRunner @DirectoryControlParameters)
+            $DirectoryControlTerminalResults = @(
+                $DirectoryControlOutput |
+                    Where-Object {
+                        $null -ne $_ -and
+                        $null -ne $_.PSObject.Properties['PackageIdentity'] -and
+                        [string]$_.PackageIdentity -eq 'MSADPT-DIRECTORY-CONTROL-ASSESSMENT'
+                    }
+            )
+            if ($DirectoryControlTerminalResults.Count -eq 0) {
+                throw 'DirectoryControlTerminalResultMissing'
+            }
+            $DirectoryControlResult = $DirectoryControlTerminalResults[-1]
+            if (-not (Test-Path -LiteralPath $DirectoryControlSummary -PathType Leaf)) {
+                throw 'DirectoryControlSummaryMissing'
+            }
+            if (-not (Test-Manifest -ManifestPath $DirectoryControlManifest -BaseDirectory $DirectoryControlDirectory -ExpectedStatus @('Completed','CompletedWithErrors'))) {
+                throw 'DirectoryControlManifestValidationFailed'
+            }
+            $DirectoryControlExecuted = $true
+            $LiveModulesExecuted++
+        }
+        catch {
+            $Errors.Add([pscustomobject]@{Module='DirectoryControl';Stage='CollectionAndAnalysis';Error=$_.Exception.Message})
+        }
+    }
+    elseif ($Mode -eq 'Analyze' -and -not $DirectoryControlComplete) {
+        $Errors.Add([pscustomobject]@{Module='DirectoryControl';Stage='Analysis';Error='Manifest-backed Directory Control evidence is unavailable for offline analysis.'})
+    }
+    if (Test-Path -LiteralPath $DirectoryControlSummary -PathType Leaf) {
+        $DirectoryControlSummaryObject = Get-Content -LiteralPath $DirectoryControlSummary -Raw | ConvertFrom-Json -ErrorAction Stop
+        $DirectoryControlStageStatus = if ($DirectoryControlReused) { 'Reused' } else { 'Completed' }
+        Write-JsonDocument -Path $DirectoryControlStagePath -Value ([pscustomobject][ordered]@{
+            ModuleId = 'Invoke-MSADPTDirectoryControlAssessment'
+            ModuleVersion = [string](Get-SafeProperty $DirectoryControlSummaryObject 'PackageVersion' '1.0.1')
+            Status = $DirectoryControlStageStatus
+            Disposition = [string](Get-SafeProperty $DirectoryControlSummaryObject 'Disposition' 'Inconclusive')
+            Result = $DirectoryControlSummaryObject
+            CompletedUtc = (Get-Date).ToUniversalTime().ToString('o')
+        })
+    }
+}
+
+    $DirectoryControlReductionComplete = (
+        -not $ForceRerun -and
+        (Test-Path -LiteralPath $DirectoryControlReductionSummary -PathType Leaf) -and
+        (Test-Path -LiteralPath $DirectoryControlHtmlContract -PathType Leaf) -and
+        (Test-Manifest -ManifestPath $DirectoryControlReductionManifest -BaseDirectory $DirectoryControlReductionDirectory -ExpectedStatus @('Completed'))
+    )
+    if ($DirectoryControlReductionComplete) {
+        $DirectoryControlReductionResult = Get-Content -LiteralPath $DirectoryControlReductionSummary -Raw | ConvertFrom-Json -ErrorAction Stop
+        $DirectoryControlReductionReused = $true
+        $SkippedModules++
+        Show -State 'REUSE' -Message 'Directory-control reduction evidence and manifest verified. Offline reduction skipped.' -Color Green
+    }
+    elseif ($Mode -in @('Audit','Analyze','Resume') -and (Test-Path -LiteralPath (Join-Path $DirectoryControlDirectory 'directory-control-first-hop-candidates.csv') -PathType Leaf)) {
+        try {
+            if (Test-Path -LiteralPath $DirectoryControlReductionDirectory -PathType Container) { Remove-Item -LiteralPath $DirectoryControlReductionDirectory -Recurse -Force }
+            $Reducer = Join-Path $Root 'Modules\ObjectControl\Invoke-MSADPTDirectoryControlCandidateReduction-v1.0.4.ps1'
+            if (-not (Test-Path -LiteralPath $Reducer -PathType Leaf)) { throw "DirectoryControlReducerMissing: $Reducer" }
+            Show -State 'DIRREDUCE' -Message 'Reducing Directory Control candidates offline into report-ready validation families.' -Color Yellow
+            $ReductionOutput = @(& $Reducer -DirectoryControlEvidenceDirectory $DirectoryControlDirectory -OutputDirectory $DirectoryControlReductionDirectory -NoColor:$NoColor)
+            $DirectoryControlReductionResult = @($ReductionOutput | Where-Object { $null -ne $_ -and $null -ne $_.PSObject.Properties['ToolVersion'] } | Select-Object -Last 1)
+            if ($null -eq $DirectoryControlReductionResult) { throw 'DirectoryControlReductionTerminalResultMissing' }
+            if (-not (Test-Manifest -ManifestPath $DirectoryControlReductionManifest -BaseDirectory $DirectoryControlReductionDirectory -ExpectedStatus @('Completed'))) { throw 'DirectoryControlReductionManifestValidationFailed' }
+            $DirectoryControlReductionExecuted = $true
+            $LiveModulesExecuted++
+        }
+        catch { $Errors.Add([pscustomobject]@{Module='DirectoryControlReduction';Stage='OfflineAnalysis';Error=$_.Exception.Message}) }
+    }
+    elseif ($Mode -in @('Analyze','Resume')) { $Errors.Add([pscustomobject]@{Module='DirectoryControlReduction';Stage='OfflineAnalysis';Error='Directory Control candidate evidence is unavailable.'}) }
+# DIRECTORY-CONTROL-STAGE-END
 
 # PATCH-STAGE-BEGIN
 if ($IncludePatchState) {
@@ -780,6 +976,8 @@ $DcStageObject = if (Test-Path -LiteralPath $DcStagePath) { Get-Content -Literal
 $ADCSStageObject = if (Test-Path -LiteralPath $ADCSStagePath) { Get-Content -LiteralPath $ADCSStagePath -Raw | ConvertFrom-Json } else { $null }
 $ADDnsStageObject = if (Test-Path -LiteralPath $ADDnsStagePath) { Get-Content -LiteralPath $ADDnsStagePath -Raw | ConvertFrom-Json } else { $null }
 $PatchStageObject = if (Test-Path -LiteralPath $PatchStagePath) { Get-Content -LiteralPath $PatchStagePath -Raw | ConvertFrom-Json } else { $null }
+$SMBStageObject = if (Test-Path -LiteralPath $SMBStagePath) { Get-Content -LiteralPath $SMBStagePath -Raw | ConvertFrom-Json } else { $null }
+$DirectoryControlStageObject = if (Test-Path -LiteralPath $DirectoryControlStagePath) { Get-Content -LiteralPath $DirectoryControlStagePath -Raw | ConvertFrom-Json } else { $null }
 $PatchMethodErrorCount = 0
 if ($IncludePatchState -and (Test-Path -LiteralPath $PatchStateSummary -PathType Leaf)) {
     $PatchMethodErrorSummary = Get-Content -LiteralPath $PatchStateSummary -Raw | ConvertFrom-Json -ErrorAction Stop
@@ -798,17 +996,18 @@ $CoverageRows = @(
     [pscustomobject][ordered]@{Id='DomainControllers';Name='Domain Controller Inventory';State=$DcDisposition;Evidence=@($DcJson);Limitations=@('Directory metadata only; no service probing or remote execution.')},
     [pscustomobject][ordered]@{Id='ADCS';Name='Active Directory Certificate Services';State=if(-not $IncludeADCS){'NotStarted'}elseif($null-ne$ADCSStageObject){[string]$ADCSStageObject.Disposition}else{'Inconclusive'};Evidence=@($ADCSSummary,$ADCSCandidates,$ADCSManifest,$ADCSAnalysisManifest);Limitations=@('Prerequisite correlation only. No certificate enrollment, certificate authentication, relay, private-key access, template modification, or CA modification was performed.')},
     [pscustomobject][ordered]@{Id='NameResolution.ADDns';Name='AD-Integrated DNS';State=if(-not $IncludeADDns){'NotStarted'}elseif($null-ne$ADDnsStageObject){[string]$ADDnsStageObject.Disposition}else{'Inconclusive'};Evidence=@($ADDnsSummary);Limitations=@('DNS write capability does not prove relay, credential capture, privilege escalation, or domain compromise.')},
+    [pscustomobject][ordered]@{Id='Directory.Control';Name='Directory control';State=if(-not $IncludeDirectoryControl){'NotStarted'}elseif($null-ne$DirectoryControlStageObject){[string]$DirectoryControlStageObject.Disposition}else{'Inconclusive'};Evidence=@($DirectoryControlSummary,$DirectoryControlManifest,$DirectoryControlReductionSummary,$DirectoryControlPrioritizedFamilies,$DirectoryControlSidSummary,$DirectoryControlReplicationRights,$DirectoryControlHtmlContract);Limitations=@('Targeted high-impact scope. Validation Priority is not severity. Effective access and downstream impact are not automatically reproduced. The prioritized view is bounded; complete families remain in structured evidence.')}
     [pscustomobject][ordered]@{Id='PatchIntelligence';Name='Current AD Vulnerabilities';State=if(-not $IncludePatchState){'NotStarted'}elseif($null -ne $PatchStageObject){[string]$PatchStageObject.Disposition}else{'Inconclusive'};Evidence=@($PatchStateSummary,$PatchStateApplicability);Limitations=@('Patch build assessment only; prerequisites and impact are evaluated separately.')}
 )
 foreach ($Family in @($CoverageCatalog.Families)) {
-    if ($Family.Id -notin @('Identity.Kerberos','Identity.Delegation','ADCS')) {
+    if ($Family.Id -notin @('Identity.Kerberos','Identity.Delegation','ADCS','Directory.Control')) {
         $CoverageRows += [pscustomobject][ordered]@{Id=$Family.Id;Name=$Family.Name;State='NotStarted';Evidence=@();Limitations=@(if($Profile -eq 'Quick'){'Not included in Quick profile.'}else{'No validated first-class Full-profile orchestration contract is currently available for this family.'})}
     }
 }
 # Ensure the authoritative SMB stage supersedes any generic NotStarted row.
 if($IncludeSMB){
     $CoverageRows=@($CoverageRows|Where-Object{[string]$_.Id-ne'SMB.Files'})
-    $SMBState=if($null-eq$SMBResult){'Inconclusive'}elseif([int](Get-SafeProperty $SMBResult 'SigningOptionalOrDisabledCount' 0)-gt0-or[int](Get-SafeProperty $SMBResult 'InterestingFileNameLeadCount' 0)-gt0){'CandidateDetected'}elseif([int](Get-SafeProperty $SMBResult 'OperationalErrorCount' 0)-gt0-and[int](Get-SafeProperty $SMBResult 'ShareCount' 0)-eq0){'Inconclusive'}else{'Collected'}
+    $SMBState=if($null-eq$SMBNormalizedResult){'Inconclusive'}else{[string]$SMBNormalizedResult.Disposition}
     $CoverageRows+=[pscustomobject][ordered]@{Id='SMB.Files';Name='SMB and file exposure';State=$SMBState;Evidence=@($SMBSummary,$SMBManifest,$SMBNmapImportSummary,$SMBMergedTargetList);Limitations=@('Domain controllers are always included. Operator-supplied Nmap XML extends scope only for hosts where TCP/445 is explicitly open. Share enumeration errors and zero returned shares do not prove absence. No write test, relay attempt, or remote execution occurred.')}
 }
 $Ledger = [pscustomobject][ordered]@{
@@ -818,10 +1017,12 @@ $Ledger = [pscustomobject][ordered]@{
     Profile = $Profile
     BootstrapServer = $BootstrapServer
     AttackFamilies = $CoverageRows
-    Modules = @($KerberosStageObject,$DcStageObject,$PatchStageObject,$ADCSStageObject,$ADDnsStageObject | Where-Object { $null -ne $_ })
+    Modules = @($KerberosStageObject,$DcStageObject,$PatchStageObject,$ADCSStageObject,$ADDnsStageObject,$SMBStageObject,$DirectoryControlStageObject | Where-Object { $null -ne $_ })
     OperationalErrorCount = $ErrorRows.Count
-    NonFatalCollectionMethodErrorCount = $PatchMethodErrorCount
-    TotalRecordedOperationalIssueCount = ($ErrorRows.Count + $PatchMethodErrorCount)
+    PatchCollectionMethodErrorCount = $PatchMethodErrorCount
+    SMBCollectionMethodErrorCount = $SMBMethodErrorCount
+    NonFatalCollectionMethodErrorCount = ($PatchMethodErrorCount + $SMBMethodErrorCount)
+    TotalRecordedOperationalIssueCount = ($ErrorRows.Count + $PatchMethodErrorCount + $SMBMethodErrorCount)
 }
 Write-JsonDocument -Path $LedgerPath -Value $Ledger
 
@@ -838,7 +1039,9 @@ if ($IncludePatchState -and (Test-Path -LiteralPath $PatchStateApplicability -Pa
     $PatchApplicabilityRowsForReport = @(Get-Content -LiteralPath $PatchStateApplicability -Raw | ConvertFrom-Json -ErrorAction Stop)
 }
 $FatalOrchestrationErrorCount = $ErrorRows.Count
-$NonFatalCollectionMethodErrorCount = $PatchMethodErrorCount
+$PatchCollectionMethodErrorCount = $PatchMethodErrorCount
+$SMBCollectionMethodErrorCount = $SMBMethodErrorCount
+$NonFatalCollectionMethodErrorCount = $PatchCollectionMethodErrorCount + $SMBCollectionMethodErrorCount
 $TotalRecordedOperationalIssueCount = $FatalOrchestrationErrorCount + $NonFatalCollectionMethodErrorCount
 $PatchHtml = '<div class="card">Patch-state collection was not selected.</div>'
 if ($IncludePatchState) {
@@ -850,7 +1053,7 @@ if ($IncludePatchState) {
 }
 $ADCSHtml = '<div class="card">AD CS collection was not selected.</div>'
 $SMBHtml = if ($IncludeSMB -and $null -ne $SMBResult) {
-    '<div class="card"><b>Targets:</b> {0}<br><b>TCP/445 reachable:</b> {1}<br><b>Signing optional or disabled:</b> {2}<br><b>Shares:</b> {3}<br><b>Accessible share roots:</b> {4}<br><b>Filename metadata entries:</b> {5}<br><b>Interesting filename leads:</b> {6}<br><b>Nmap XML import:</b> Optional operator-supplied evidence; see linked import summary when present.<br><b>Content reads:</b> None<br><b>Remote changes:</b> None<br><b>Relay attempts:</b> None</div><ul><li><a href="../evidence/SMBFullAssessment/Collector/smb-share-pivot-summary.json">SMB summary</a></li><li><a href="../evidence/SMBFullAssessment/Collector/smb-share-inventory.json">Share inventory</a></li><li><a href="../evidence/SMBFullAssessment/Collector/smb-signing-evidence.json">SMB signing evidence</a></li><li><a href="../evidence/SMBFullAssessment/Collector/evidence-manifest.json">Evidence manifest</a></li></ul>' -f @((Get-SafeProperty $SMBResult 'TargetCount' 0),(Get-SafeProperty $SMBResult 'Tcp445ReachableCount' 0),(Get-SafeProperty $SMBResult 'SigningOptionalOrDisabledCount' 0),(Get-SafeProperty $SMBResult 'ShareCount' 0),(Get-SafeProperty $SMBResult 'AccessibleShareCount' 0),(Get-SafeProperty $SMBResult 'MetadataEntryCount' 0),(Get-SafeProperty $SMBResult 'InterestingFileNameLeadCount' 0))
+    '<div class="card"><b>Targets:</b> {0}<br><b>TCP/445 reachable:</b> {1}<br><b>Signing optional or disabled:</b> {2}<br><b>Shares:</b> {3}<br><b>Accessible share roots:</b> {4}<br><b>Filename metadata entries:</b> {5}<br><b>Interesting filename leads:</b> {6}<br><b>Collection-method errors:</b> {7}<br><b>Nmap XML import:</b> Operator-supplied local evidence; see the linked import summary when present.<br><b>Content reads:</b> None<br><b>Remote changes:</b> None<br><b>Relay attempts:</b> None</div><ul><li><a href="../evidence/SMBFullAssessment/Collector/smb-share-pivot-summary.json">SMB summary</a></li><li><a href="../evidence/SMBFullAssessment/Collector/smb-share-inventory.json">Share inventory</a></li><li><a href="../evidence/SMBFullAssessment/Collector/smb-signing-observations.json">SMB signing evidence</a></li><li><a href="../evidence/SMBFullAssessment/Collector/evidence-manifest.json">Evidence manifest</a></li></ul>' -f @((Get-SafeProperty $SMBNormalizedResult 'TargetCount' 0),(Get-SafeProperty $SMBNormalizedResult 'Tcp445ReachableCount' 0),(Get-SafeProperty $SMBNormalizedResult 'SigningOptionalOrDisabledCount' 0),(Get-SafeProperty $SMBNormalizedResult 'ShareCount' 0),(Get-SafeProperty $SMBNormalizedResult 'AccessibleShareCount' 0),(Get-SafeProperty $SMBNormalizedResult 'MetadataEntryCount' 0),(Get-SafeProperty $SMBNormalizedResult 'InterestingFileNameLeadCount' 0),(Get-SafeProperty $SMBNormalizedResult 'OperationalErrorCount' 0))
 } else { '<div class="card">SMB assessment was not selected.</div>' }
 
 if ($IncludeADCS) {
@@ -875,16 +1078,48 @@ $ReportPath = Join-Path $EngagementDirectory ('reports\'+$ReportFileName)
 $ADDnsReportDisposition = if ($null -ne $ADDnsStageObject) { [string]$ADDnsStageObject.Disposition } else { 'NotStarted' }
 $ADDnsAuthorizationBreadth=if($null-ne$ADDnsStageObject -and $null-ne$ADDnsStageObject.Result){[string](Get-SafeProperty $ADDnsStageObject.Result 'AuthorizationBreadth' 'Unknown')}else{'Unknown'}
 $ADDnsBroadWrite=if($null-ne$ADDnsStageObject -and $null-ne$ADDnsStageObject.Result){[bool](Get-SafeProperty $ADDnsStageObject.Result 'BroadPrincipalWriteDetected' $false)}else{$false}
+$ActualRemoteChanges = if ($ADDnsExecuted -and $EnableBehavioralValidation) { 'One temporary AD DNS dnsNode created, validated, deleted, and verified absent' } else { 'None during this execution' }
+$PermittedRemoteChanges = [string]$Plan.RemoteChanges
+$DirectoryControlReportDisposition = if($null-ne$DirectoryControlStageObject){[string]$DirectoryControlStageObject.Disposition}else{'NotStarted'}
+$DirectoryControlReductionSummaryObject = $null
+$DirectoryControlFamiliesForReport = @()
+$DirectoryControlSidForReport = @()
+$DirectoryControlReplicationForReport = @()
+if (Test-Path -LiteralPath $DirectoryControlReductionSummary -PathType Leaf) { $DirectoryControlReductionSummaryObject = Get-Content -LiteralPath $DirectoryControlReductionSummary -Raw | ConvertFrom-Json -ErrorAction Stop }
+if (Test-Path -LiteralPath $DirectoryControlPrioritizedFamilies -PathType Leaf) { $DirectoryControlFamiliesForReport = @(Import-Csv -LiteralPath $DirectoryControlPrioritizedFamilies | Select-Object -First 50) }
+if (Test-Path -LiteralPath $DirectoryControlSidSummary -PathType Leaf) { $DirectoryControlSidForReport = @(Import-Csv -LiteralPath $DirectoryControlSidSummary | Select-Object -First 25) }
+if (Test-Path -LiteralPath $DirectoryControlReplicationRights -PathType Leaf) { $DirectoryControlReplicationForReport = @(Import-Csv -LiteralPath $DirectoryControlReplicationRights) }
+$DCC=$null;if($null-ne$DirectoryControlReductionSummaryObject){$DCC=Get-SafeProperty $DirectoryControlReductionSummaryObject 'Counts'}
+$DCFamilyRows=($DirectoryControlFamiliesForReport|ForEach-Object{'<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3}</td><td>{4}</td><td>{5}</td></tr>' -f (Convert-HtmlText $_.Priority),(Convert-HtmlText $_.Trustee),(Convert-HtmlText $_.Capability),(Convert-HtmlText $_.TargetObjectType),(Convert-HtmlText $_.CandidateCount),(Convert-HtmlText $_.ValidationQuestion)}) -join "`n"
+if([string]::IsNullOrWhiteSpace($DCFamilyRows)){$DCFamilyRows='<tr><td colspan="6">No prioritized family evidence available.</td></tr>'}
+$DCSidRows=($DirectoryControlSidForReport|ForEach-Object{'<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3}</td></tr>' -f (Convert-HtmlText $_.TrusteeSid),(Convert-HtmlText $_.Capability),(Convert-HtmlText $_.TargetObjectType),(Convert-HtmlText $_.AffectedTargetCount)}) -join "`n"
+if([string]::IsNullOrWhiteSpace($DCSidRows)){$DCSidRows='<tr><td colspan="4">No unresolved identity family evidence available.</td></tr>'}
+$DCReplicationRows=($DirectoryControlReplicationForReport|ForEach-Object{'<tr><td>{0}</td><td>{1}</td><td>{2}</td><td>{3}</td></tr>' -f (Convert-HtmlText $_.Trustee),(Convert-HtmlText $_.Rights),(Convert-HtmlText $_.Disposition),(Convert-HtmlText $_.EffectiveAccess)}) -join "`n"
+if([string]::IsNullOrWhiteSpace($DCReplicationRows)){$DCReplicationRows='<tr><td colspan="4">No domain-root replication evidence available.</td></tr>'}
+$DirectoryControlHtml='<h2>Directory Control</h2><h3>At-a-glance disposition</h3><div class="card"><b>Collector disposition:</b> {0}<br><b>Input candidates:</b> {1}<br><b>Prioritized families:</b> {2}<br><b>Focused review:</b> {3}<br><b>Unresolved identity families:</b> {4}<br><b>Replication trustees:</b> {5}<br><b>Omitted by trustee diversity:</b> {6}<br><b>Directory changes:</b> None<br><b>Impact reproduction:</b> None</div><h3>Prioritized control families</h3><p>Priority is validation order, not severity. The table is bounded to 50 rows; complete evidence is linked below.</p><table><tr><th>Validation Priority</th><th>Trustee</th><th>Capability</th><th>Target type</th><th>Candidates</th><th>Validation question</th></tr>{7}</table><h3>Platform delegation review</h3><p>Platform control is neither automatically safe nor vulnerable. Platform dispositions and complete families are preserved in the linked evidence.</p><h3>Unresolved identity families</h3><table><tr><th>Trustee SID</th><th>Capability</th><th>Target type</th><th>Affected targets</th></tr>{8}</table><h3>Domain-root replication rights</h3><table><tr><th>Trustee</th><th>Rights</th><th>Disposition</th><th>Effective access</th></tr>{9}</table><h3>Collection and interpretation limitations</h3><p>No family is a confirmed vulnerability without effective-access and impact validation. Protected-object indicators do not establish AdminSDHolder provenance or enforcement. Additional eligible families may exist beyond per-trustee display limits.</p><h3>Evidence links</h3><ul><li><a href="../analysis/DirectoryControlReduction/directory-control-prioritized-families.csv">Prioritized families</a></li><li><a href="../analysis/DirectoryControlReduction/directory-control-all-eligible-families.csv">All eligible families</a></li><li><a href="../analysis/DirectoryControlReduction/directory-control-prioritized-target-details.csv">Target details</a></li><li><a href="../analysis/DirectoryControlReduction/directory-control-focused-review-reduced.csv">Focused review</a></li><li><a href="../analysis/DirectoryControlReduction/directory-control-sid-resolution-summary.csv">Unresolved identity summary</a></li><li><a href="../analysis/DirectoryControlReduction/directory-control-sid-resolution-delegation-details.csv">Unresolved identity delegation details</a></li><li><a href="../analysis/DirectoryControlReduction/directory-control-domain-replication-rights.csv">Domain replication rights</a></li><li><a href="../analysis/DirectoryControlReduction/directory-control-suppressed.csv">Suppressed relationships</a></li><li><a href="../analysis/DirectoryControlReduction/directory-control-reduction-summary.json">Reduction summary</a></li></ul>' -f (Convert-HtmlText $DirectoryControlReportDisposition),(Convert-HtmlText (Get-SafeProperty $DCC 'InputCandidates' 0)),(Convert-HtmlText (Get-SafeProperty $DCC 'PrioritizedFamilyOutput' 0)),(Convert-HtmlText (Get-SafeProperty $DCC 'FocusedReview' 0)),(Convert-HtmlText (Get-SafeProperty $DCC 'TrulyUnresolvedSidFamilies' 0)),(Convert-HtmlText (Get-SafeProperty $DCC 'DomainReplicationTrustees' 0)),(Convert-HtmlText (Get-SafeProperty $DCC 'OmittedForTrusteeDiversityLimit' 0)),$DCFamilyRows,$DCSidRows,$DCReplicationRows
+$KerberosPostureReportDisposition = 'NotStarted'
+if ($IncludeKerberosCrypto -and (Test-Path -LiteralPath $KerberosCryptoSummary -PathType Leaf)) {
+    $KerberosPostureSummaryForReport = Get-Content -LiteralPath $KerberosCryptoSummary -Raw | ConvertFrom-Json -ErrorAction Stop
+    $KerberosPostureReportDisposition = [string](Get-SafeProperty $KerberosPostureSummaryForReport 'OverallDisposition' 'Inconclusive')
+}
 $Html = @"
 <!doctype html><html><head><meta charset="utf-8"><title>MSADPT $Profile Audit</title>
-<style>body{font-family:Segoe UI,Arial;margin:32px;color:#17202a}h1,h2{color:#0b5cab}.card{border:1px solid #ccd6dd;border-radius:8px;padding:16px;margin:14px 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd6dd;padding:8px;text-align:left;vertical-align:top}th{background:#eaf2f8}.note{color:#5d6d7e}</style></head><body>
+<style>body{font-family:Segoe UI,Arial;margin:32px;color:#17202a}h1,h2{color:#0b5cab}.card{border:1px solid #ccd6dd;border-radius:8px;padding:16px;margin:14px 0}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccd6dd;padding:8px;text-align:left;vertical-align:top}th{background:#eaf2f8}.note{color:#5d6d7e}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}.metric{border-left:5px solid #0b5cab}.confirmed{border-left-color:#1e8449}.review{border-left-color:#d68910}.inconclusive{border-left-color:#7d3c98}.limits{border-left-color:#5d6d7e}</style></head><body>
 <h1>MSADPT $Profile Audit</h1>
-<div class="card"><b>Mode:</b> $(Convert-HtmlText $Mode)<br><b>Profile:</b> $(Convert-HtmlText $Profile)<br><b>Bootstrap DC:</b> $(Convert-HtmlText $BootstrapServer)<br><b>Live modules executed:</b> $LiveModulesExecuted<br><b>Modules reused:</b> $SkippedModules<br><b>Operational module errors:</b> $FatalOrchestrationErrorCount<br><b>Nonfatal collection-method errors:</b> $NonFatalCollectionMethodErrorCount<br><b>Total recorded operational issues:</b> $TotalRecordedOperationalIssueCount<br><b>Remote changes:</b> $(Convert-HtmlText $Plan.RemoteChanges)<br><b>Ticket requests:</b> None</div>
+<div class="card"><b>Mode:</b> $(Convert-HtmlText $Mode)<br><b>Profile:</b> $(Convert-HtmlText $Profile)<br><b>Bootstrap DC:</b> $(Convert-HtmlText $BootstrapServer)<br><b>Live modules executed:</b> $LiveModulesExecuted<br><b>Modules reused:</b> $SkippedModules<br><b>Operational module errors:</b> $FatalOrchestrationErrorCount<br><b>Patch collection-method errors:</b> $PatchCollectionMethodErrorCount<br><b>SMB collection-method errors:</b> $SMBCollectionMethodErrorCount<br><b>Total nonfatal collection-method errors:</b> $NonFatalCollectionMethodErrorCount<br><b>Total recorded operational issues:</b> $TotalRecordedOperationalIssueCount<br><b>Maximum permitted remote changes:</b> $(Convert-HtmlText $PermittedRemoteChanges)<br><b>Actual remote changes this execution:</b> $(Convert-HtmlText $ActualRemoteChanges)<br><b>Ticket requests:</b> None</div>
+<h2>Posture at a Glance</h2>
+<div class="grid">
+<div class="card metric confirmed"><b>Validated behavior</b><br>AD DNS behavioral validation: $(Convert-HtmlText $ADDnsReportDisposition)<br>Cleanup verification is recorded separately.</div>
+<div class="card metric review"><b>Review required</b><br>Kerberos posture: $(Convert-HtmlText $KerberosPostureReportDisposition)<br>AD CS paths remain prerequisite candidates until decisive evidence is collected.</div>
+<div class="card metric inconclusive"><b>Inconclusive coverage</b><br>SMB method errors: $SMBCollectionMethodErrorCount<br>Patch-state unknown assessments: $(Convert-HtmlText (Get-SafeProperty $PatchSummaryObjectForReport 'PatchStateUnknownCount' 0))</div>
+<div class="card metric limits"><b>Collection limits</b><br>Fatal orchestration errors: $FatalOrchestrationErrorCount<br>Patch method errors: $PatchCollectionMethodErrorCount<br>SMB method errors: $SMBCollectionMethodErrorCount</div>
+</div>
 <h2>$Profile Results</h2>
 <div class="card"><b>Domain controllers inventoried:</b> $DcCount<br><b>SPN records:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'SpnRecords' 0))<br><b>User-owned SPNs:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'UserSpnRecords' 0))<br><b>Duplicate SPN groups:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'DuplicateSpnGroups' 0))<br><b>AS-REP candidates:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'AsRepCandidates' 0))<br><b>Kerberoast candidates:</b> $(Convert-HtmlText (Get-SafeProperty $KerberosCounts 'KerberoastCandidates' 0))<br><b>Delegation candidates:</b> $(Convert-HtmlText (([int](Get-SafeProperty $KerberosCounts 'UnconstrainedDelegationCandidates' 0))+([int](Get-SafeProperty $KerberosCounts 'ConstrainedDelegationCandidates' 0))+([int](Get-SafeProperty $KerberosCounts 'RbcdCandidates' 0))))</div>
 <h2>Coverage</h2><table><tr><th>Attack family</th><th>State</th><th>Limitations</th></tr>$CoverageHtml</table>
 <h2>AD-Integrated DNS</h2><div class="card"><b>Disposition:</b> $(Convert-HtmlText $ADDnsReportDisposition)<br><b>Behavioral validation selected:</b> $([bool]$EnableBehavioralValidation)<br><b>Authorization breadth:</b> $(Convert-HtmlText $ADDnsAuthorizationBreadth)<br><b>Broad principal write detected:</b> $ADDnsBroadWrite<br>Successful DNS write capability does not by itself prove relay, credential capture, privilege escalation, or domain compromise.</div><ul><li><a href="../analysis/ADDnsSecurity/ad-dns-security-summary.json">DNS security summary</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-write-validation.json">Write validation evidence</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-cleanup-manifest.json">Cleanup verification</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-effective-write-context.json">Effective authorization context</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-resolution-validation.json">Authoritative resolution validation</a></li><li><a href="../evidence/ADDnsSecurity/ad-dns-inventory.json">DNS inventory</a></li><li><a href="../analysis/ADDnsSecurity/ad-dns-dangling-reference-candidates.json">Dangling-reference candidates</a></li></ul>
 <h2>SMB and File Exposure</h2>$SMBHtml
+$DirectoryControlHtml
 <h2>Active Directory Certificate Services</h2>$ADCSHtml
 <h2>Current AD Vulnerabilities</h2>$PatchHtml
 <h2>Operational Errors</h2><table><tr><th>Module</th><th>Stage</th><th>Error</th></tr>$ErrorHtml</table>
@@ -910,6 +1145,8 @@ Show -State 'DONE' -Message "Status=$OverallStatus; live=$LiveModulesExecuted; r
     LiveModulesExecuted = $LiveModulesExecuted
     ReusedModuleCount = $SkippedModules
     OperationalErrorCount = $FatalOrchestrationErrorCount
+    PatchCollectionMethodErrorCount = $PatchCollectionMethodErrorCount
+    SMBCollectionMethodErrorCount = $SMBCollectionMethodErrorCount
     NonFatalCollectionMethodErrorCount = $NonFatalCollectionMethodErrorCount
     TotalRecordedOperationalIssueCount = $TotalRecordedOperationalIssueCount
     ADDnsIncluded = [bool]$IncludeADDns
@@ -924,6 +1161,17 @@ Show -State 'DONE' -Message "Status=$OverallStatus; live=$LiveModulesExecuted; r
     SMBIncluded = [bool]$IncludeSMB
     SMBExecuted = [bool]$SMBExecuted
     SMBReused = [bool]$SMBReused
+    SMBDisposition = if($null-ne$SMBNormalizedResult){[string]$SMBNormalizedResult.Disposition}else{'NotStarted'}
+    SMBTargetCount = if($null-ne$SMBNormalizedResult){[int]$SMBNormalizedResult.TargetCount}else{0}
+    SMBTcp445ReachableCount = if($null-ne$SMBNormalizedResult){[int]$SMBNormalizedResult.Tcp445ReachableCount}else{0}
+    ActualRemoteChanges = $ActualRemoteChanges
+    DirectoryControlIncluded = [bool]$IncludeDirectoryControl
+    DirectoryControlExecuted = [bool]$DirectoryControlExecuted
+    DirectoryControlReused = [bool]$DirectoryControlReused
+    DirectoryControlReductionExecuted = [bool]$DirectoryControlReductionExecuted
+    DirectoryControlReductionReused = [bool]$DirectoryControlReductionReused
+    DirectoryControlReductionSummaryPath = $DirectoryControlReductionSummary
+    DirectoryControlDisposition = if($null-ne$DirectoryControlStageObject){[string]$DirectoryControlStageObject.Disposition}else{'NotStarted'}
     PatchStateIncluded = [bool]$IncludePatchState
     PatchStateExecuted = [bool]$PatchExecuted
     PatchStateReused = [bool]$PatchReused

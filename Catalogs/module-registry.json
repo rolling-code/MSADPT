@@ -1,8 +1,8 @@
 {
   "SchemaVersion": "1.0",
-  "GeneratedUtc": "2026-09-15T00:00:00Z",
+  "GeneratedUtc": "2026-09-28T19:55:39.9339439Z",
   "DefaultExecutionPolicy": "PlanOnlyUnlessIntegrated",
-  "ModuleCount": 69,
+  "ModuleCount": 71,
   "Modules": [
     {
       "ModuleId": "MSADPT_audit_adcs_esc1_esc16",
@@ -898,7 +898,45 @@
       "ResumeSupported": true,
       "IntegrationRole": "OptionalCollectorValidator",
       "ExecutionOrder": 35
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDirectoryControlAssessment",
+      "Version": "1.0.1",
+      "Category": "DirectoryControl",
+      "ComponentType": "CollectorAnalyzer",
+      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlAssessment-v1.0.0.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeDirectoryControl",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalCollectorAnalyzer",
+      "ExecutionOrder": 70
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDirectoryControlCandidateReduction",
+      "Version": "1.0.4",
+      "Category": "DirectoryControl",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlCandidateReduction-v1.0.4.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeDirectoryControl",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OfflineReducer",
+      "ExecutionOrder": 71
     }
   ],
-  "IntegratedModuleCount": 9
+  "IntegratedModuleCount": 11
 }

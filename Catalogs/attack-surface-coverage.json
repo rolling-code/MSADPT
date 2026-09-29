@@ -81,7 +81,15 @@
         "WriteOwner",
         "RBCD write",
         "Key credential write",
-        "Replication rights"
+        "SPN write",
+        "Group membership write",
+        "Password reset",
+        "GPO link write",
+        "Replication rights",
+        "Platform delegation review",
+        "Unresolved trustee SID review",
+        "Protected-object context",
+        "Inheritance-source grouping"
       ]
     },
     {
