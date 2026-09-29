@@ -1,11 +1,11 @@
-﻿<#
+<#
 .SYNOPSIS
 Imports confirmed-open TCP/445 targets from operator-generated Nmap XML.
 .DESCRIPTION
 Uses XPath over local Nmap XML. Only host records explicitly marked up with TCP/445 explicitly marked
 open are eligible. Missing optional metadata remains null. MSADPT does not execute Nmap.
 .NOTES
-Version: 1.0.5
+Version: 1.0.6
 #>
 [CmdletBinding()]
 param(
