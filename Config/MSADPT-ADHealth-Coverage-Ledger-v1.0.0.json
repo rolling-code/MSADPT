@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "1.0",
+  "family": "ADHealth",
+  "status": "Planned",
+  "readOnlyDefault": true,
+  "excludedWriteOperations": [
+    "repadmin /kcc",
+    "repadmin /syncall",
+    "service restart",
+    "DNS re-registration"
+  ],
+  "checks": [
+    {
+      "name": "DCDiag",
+      "collectionMethod": "dcdiag",
+      "scope": "PerDC",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Replication summary",
+      "collectionMethod": "repadmin /replsummary",
+      "scope": "Domain",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Replication partners",
+      "collectionMethod": "repadmin /showrepl",
+      "scope": "PerDC",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Replication queue",
+      "collectionMethod": "repadmin /queue",
+      "scope": "PerDC",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Bridgeheads",
+      "collectionMethod": "repadmin /bridgeheads",
+      "scope": "Forest",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Netlogon secure channel",
+      "collectionMethod": "nltest /query",
+      "scope": "PerDC",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Site assignment",
+      "collectionMethod": "nltest /dsgetsite",
+      "scope": "PerDC",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "DC locator",
+      "collectionMethod": "nltest /dsgetdc",
+      "scope": "Domain",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Trust inventory",
+      "collectionMethod": "nltest and trustedDomain",
+      "scope": "Forest",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "DNS SRV correlation",
+      "collectionMethod": "Resolve-DnsName and AD inventory",
+      "scope": "Domain",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "SYSVOL and NETLOGON",
+      "collectionMethod": "SMB share validation",
+      "scope": "PerDC",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Time hierarchy",
+      "collectionMethod": "w32tm status/config/monitor",
+      "scope": "Forest",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Event logs",
+      "collectionMethod": "Get-WinEvent",
+      "scope": "PerDC",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Password policies",
+      "collectionMethod": "AD default policy and PSOs",
+      "scope": "Domain",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "FSMO/DC inventory",
+      "collectionMethod": "AD queries and service reachability",
+      "scope": "Forest",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    },
+    {
+      "name": "Recycle Bin/tombstone",
+      "collectionMethod": "AD configuration",
+      "scope": "Forest",
+      "status": "Planned",
+      "structuredEvidence": true,
+      "htmlRequired": true
+    }
+  ]
+}

@@ -5,107 +5,319 @@
   "ModuleCount": 71,
   "Modules": [
     {
-      "ModuleId": "MSADPT_audit_adcs_esc1_esc16",
-      "Version": "unversioned",
-      "Category": "ADCS",
-      "ComponentType": "Validator",
-      "EntryPoint": "MSADPT_audit_adcs_esc1_esc16.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "MSADPT_enumerate_dc2",
-      "Version": "unversioned",
-      "Category": "Platform",
+      "ModuleId": "Invoke-MSADPTKerberosSPNBaselineCollection",
+      "Version": "0.1.2",
+      "Category": "Kerberos",
       "ComponentType": "Collector",
-      "EntryPoint": "MSADPT_enumerate_dc2.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
+      "EntryPoint": "Modules/Kerberos/Invoke-MSADPTKerberosSPNBaselineCollection-v0.1.2.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "Integrated",
+      "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "IntegrationRole": "Collector",
+      "ExecutionOrder": 10,
+      "ResumeSupported": true
     },
     {
-      "ModuleId": "MSADPT_enumerate_shares2",
+      "ModuleId": "Complete-MSADPTKerberosSPNBaseline",
+      "Version": "0.1.2",
+      "Category": "Kerberos",
+      "ComponentType": "Collector",
+      "EntryPoint": "Modules/Kerberos/Complete-MSADPTKerberosSPNBaseline-v0.1.2.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "Integrated",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "IntegrationRole": "RecoveryAnalyzer",
+      "ExecutionOrder": 20,
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTKerberosCryptographicPosture",
+      "Version": "1.1.0",
+      "Category": "Kerberos",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Modules/KerberosCryptographicPosture/Invoke-MSADPTKerberosCryptographicPosture.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "Integrated",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "IntegrationRole": "Analyzer",
+      "ExecutionOrder": 25,
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDomainControllerEnumeration",
       "Version": "unversioned",
+      "Category": "DomainControllers",
+      "ComponentType": "Collector",
+      "EntryPoint": "Modules/DomainControllers/Invoke-MSADPTDomainControllerEnumeration.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "Integrated",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "IntegrationRole": "Collector",
+      "ExecutionOrder": 30,
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTSMBSharePivotAssessment",
+      "Version": "0.1.1",
       "Category": "SMB",
-      "ComponentType": "Collector",
-      "EntryPoint": "MSADPT_enumerate_shares2.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "MSADPT_exploit_privesc_initial",
-      "Version": "unversioned",
-      "Category": "Platform",
       "ComponentType": "Utility",
-      "EntryPoint": "MSADPT_exploit_privesc_initial.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "ExplicitApprovalRequired",
-      "RequiresExplicitApproval": true,
-      "Public": true
+      "EntryPoint": "Modules/SMB/Invoke-MSADPTSMBSharePivotAssessment-v0.1.1.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeSMB",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalCollector",
+      "ExecutionOrder": 32
     },
     {
-      "ModuleId": "MSADPT_scan_network2",
-      "Version": "unversioned",
-      "Category": "Platform",
+      "ModuleId": "Invoke-MSADPTADDnsSecurity",
+      "Version": "0.2.2",
+      "Category": "NameResolution",
+      "ComponentType": "Validator",
+      "EntryPoint": "Modules/ADDnsSecurity/Invoke-MSADPTADDnsSecurity.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "BoundedWriteWithCleanup",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeADDns",
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalCollectorValidator",
+      "ExecutionOrder": 35
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDomainControllerPatchState",
+      "Version": "0.1.0",
+      "Category": "VulnerabilityIntelligence",
       "ComponentType": "Collector",
-      "EntryPoint": "MSADPT_scan_network2.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
+      "EntryPoint": "Modules/VulnerabilityIntelligence/Invoke-MSADPTDomainControllerPatchState-v0.1.0.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "IntegrationRole": "OptionalCollector",
+      "ExecutionOrder": 40,
+      "ResumeSupported": true,
+      "ActivationParameter": "IncludePatchState"
     },
     {
-      "ModuleId": "MSADPT_start2",
-      "Version": "unversioned",
-      "Category": "Platform",
-      "ComponentType": "Utility",
-      "EntryPoint": "MSADPT_start2.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "MSADPT-ADCS-CSV-Validator",
+      "ModuleId": "Invoke-MSADPTADCSConfigurationCollection",
       "Version": "unversioned",
       "Category": "ADCS",
-      "ComponentType": "Validator",
-      "EntryPoint": "MSADPT-ADCS-CSV-Validator.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
+      "ComponentType": "Collector",
+      "EntryPoint": "Modules/ADCS/Invoke-MSADPTADCSConfigurationCollection.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "ActivationParameter": "IncludeADCS",
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalCollector",
+      "ExecutionOrder": 50
     },
     {
-      "ModuleId": "Start-MSADPT",
+      "ModuleId": "Invoke-MSADPTADCSEndToEndOfflineAnalysis",
       "Version": "unversioned",
-      "Category": "Platform",
-      "ComponentType": "Orchestrator",
-      "EntryPoint": "Start-MSADPT.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
+      "Category": "ADCS",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Analysis/ADCS/Invoke-MSADPTADCSEndToEndOfflineAnalysis.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
       "SafetyClass": "Offline",
       "RequiresExplicitApproval": false,
-      "Public": true
+      "Public": true,
+      "ActivationParameter": "IncludeADCS",
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalAnalyzer",
+      "ExecutionOrder": 60
     },
     {
-      "ModuleId": "Start-MSADPTMilestone2",
+      "ModuleId": "Invoke-MSADPTDirectoryControlAssessment",
+      "Version": "1.0.1",
+      "Category": "DirectoryControl",
+      "ComponentType": "CollectorAnalyzer",
+      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlAssessment-v1.0.0.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeDirectoryControl",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OptionalCollectorAnalyzer",
+      "ExecutionOrder": 70
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDirectoryControlCandidateReduction",
+      "Version": "1.0.4",
+      "Category": "DirectoryControl",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlCandidateReduction-v1.0.4.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeDirectoryControl",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "OfflineReducer",
+      "ExecutionOrder": 71
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDirectoryControlTokenEvidence",
+      "Version": "1.0.2",
+      "Category": "DirectoryControl",
+      "ComponentType": "Collector",
+      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlTokenEvidence-v1.0.2.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeDirectoryControl",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "TokenEvidenceCollector",
+      "ExecutionOrder": 72
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDirectoryControlSchemaClassMap",
+      "Version": "1.0.1",
+      "Category": "DirectoryControl",
+      "ComponentType": "Collector",
+      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlSchemaClassMap-v1.0.1.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeDirectoryControl",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "SchemaClassMapper",
+      "ExecutionOrder": 73
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDirectoryControlEffectiveAccess",
+      "Version": "1.0.3",
+      "Category": "DirectoryControl",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlEffectiveAccess-v1.0.3.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeDirectoryControl",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "EffectiveAccessEvaluator",
+      "ExecutionOrder": 74
+    },
+    {
+      "ModuleId": "New-MSADPTDirectoryControlEffectiveAccessReport",
+      "Version": "1.0.2",
+      "Category": "DirectoryControl",
+      "ComponentType": "Reporter",
+      "EntryPoint": "Modules/ObjectControl/New-MSADPTDirectoryControlEffectiveAccessReport-v1.0.2.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeDirectoryControl",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "EffectiveAccessReporter",
+      "ExecutionOrder": 75
+    },
+    {
+      "ModuleId": "Invoke-MSADPTDirectoryControlEffectiveAccessPipeline",
+      "Version": "1.0.3",
+      "Category": "DirectoryControl",
+      "ComponentType": "Pipeline",
+      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlEffectiveAccessPipeline-v1.0.3.ps1",
+      "Maturity": "Integrated",
+      "OrchestrationState": "IntegratedOptional",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "ActivationParameter": "IncludeDirectoryControl",
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": true,
+      "IntegrationRole": "IntegratedOptionalPipeline",
+      "ExecutionOrder": 76
+    },
+    {
+      "ModuleId": "Build-MSADPTADCSESC3ESC13CandidateFacts",
       "Version": "unversioned",
-      "Category": "Platform",
-      "ComponentType": "Orchestrator",
-      "EntryPoint": "Start-MSADPTMilestone2.ps1",
+      "Category": "ADCS",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Analysis/ADCS/Build-MSADPTADCSESC3ESC13CandidateFacts.ps1",
       "Maturity": "AvailableStandalone",
       "OrchestrationState": "AvailableStandalone",
       "SafetyClass": "Offline",
@@ -125,26 +337,14 @@
       "Public": true
     },
     {
-      "ModuleId": "New-MSADPTAssessmentSnapshotManifest",
-      "Version": "unversioned",
-      "Category": "Snapshot",
-      "ComponentType": "Utility",
-      "EntryPoint": "Analysis/New-MSADPTAssessmentSnapshotManifest.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "Build-MSADPTADCSESC3ESC13CandidateFacts",
-      "Version": "unversioned",
-      "Category": "ADCS",
+      "ModuleId": "Complete-MSADPTADObjectControlGateDiagnostics",
+      "Version": "0.1.2",
+      "Category": "ObjectControl",
       "ComponentType": "Analyzer",
-      "EntryPoint": "Analysis/ADCS/Build-MSADPTADCSESC3ESC13CandidateFacts.ps1",
+      "EntryPoint": "Modules/ObjectControl/Complete-MSADPTADObjectControlGateDiagnostics-v0.1.2.ps1",
       "Maturity": "AvailableStandalone",
       "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
+      "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
       "Public": true
     },
@@ -209,6 +409,18 @@
       "Public": true
     },
     {
+      "ModuleId": "Find-MSADPTADUnicodeIdentityAnomalies",
+      "Version": "unversioned",
+      "Category": "Identity",
+      "ComponentType": "Utility",
+      "EntryPoint": "Analysis/Identity/Find-MSADPTADUnicodeIdentityAnomalies.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
       "ModuleId": "Get-MSADPTADCSCandidateValidationPlan",
       "Version": "unversioned",
       "Category": "ADCS",
@@ -245,86 +457,6 @@
       "Public": true
     },
     {
-      "ModuleId": "Invoke-MSADPTADCSEndToEndOfflineAnalysis",
-      "Version": "unversioned",
-      "Category": "ADCS",
-      "ComponentType": "Analyzer",
-      "EntryPoint": "Analysis/ADCS/Invoke-MSADPTADCSEndToEndOfflineAnalysis.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "IntegratedOptional",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "ActivationParameter": "IncludeADCS",
-      "SupportedProfiles": [
-        "Quick",
-        "Full"
-      ],
-      "ResumeSupported": true,
-      "IntegrationRole": "OptionalAnalyzer",
-      "ExecutionOrder": 60
-    },
-    {
-      "ModuleId": "Invoke-MSADPTADCSESC2ESC15RealEvidence",
-      "Version": "unversioned",
-      "Category": "ADCS",
-      "ComponentType": "Utility",
-      "EntryPoint": "Analysis/ADCS/Invoke-MSADPTADCSESC2ESC15RealEvidence.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "Invoke-MSADPTADCSPrerequisiteCorrelation",
-      "Version": "unversioned",
-      "Category": "ADCS",
-      "ComponentType": "Analyzer",
-      "EntryPoint": "Analysis/ADCS/Invoke-MSADPTADCSPrerequisiteCorrelation.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "Invoke-MSADPTADCSUnifiedCandidateInventory",
-      "Version": "unversioned",
-      "Category": "ADCS",
-      "ComponentType": "Utility",
-      "EntryPoint": "Analysis/ADCS/Invoke-MSADPTADCSUnifiedCandidateInventory.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "Merge-MSADPTADCSCandidateInventories",
-      "Version": "unversioned",
-      "Category": "ADCS",
-      "ComponentType": "Analyzer",
-      "EntryPoint": "Analysis/ADCS/Merge-MSADPTADCSCandidateInventories.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "Find-MSADPTADUnicodeIdentityAnomalies",
-      "Version": "unversioned",
-      "Category": "Identity",
-      "ComponentType": "Utility",
-      "EntryPoint": "Analysis/Identity/Find-MSADPTADUnicodeIdentityAnomalies.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "Offline",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
       "ModuleId": "Get-MSADPTADIdentityContext",
       "Version": "unversioned",
       "Category": "Identity",
@@ -333,6 +465,18 @@
       "Maturity": "AvailableStandalone",
       "OrchestrationState": "AvailableStandalone",
       "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTADCSAttackPathPrerequisiteValidation",
+      "Version": "unversioned",
+      "Category": "ADCS",
+      "ComponentType": "Validator",
+      "EntryPoint": "Modules/ADCSAttackPathPrerequisiteValidation/Invoke-MSADPTADCSAttackPathPrerequisiteValidation.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "ReadOnlyLive",
       "RequiresExplicitApproval": false,
       "Public": true
     },
@@ -354,6 +498,18 @@
       "Category": "ADCS",
       "ComponentType": "Analyzer",
       "EntryPoint": "Modules/ADCS/Invoke-MSADPTADCSCandidateRebuildAndCompare-v1.0.2.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTADCSCARuntimeConfigurationCollection",
+      "Version": "unversioned",
+      "Category": "ADCS",
+      "ComponentType": "Collector",
+      "EntryPoint": "Modules/ADCSCARuntimeConfigurationCollection/Invoke-MSADPTADCSCARuntimeConfigurationCollection.ps1",
       "Maturity": "AvailableStandalone",
       "OrchestrationState": "AvailableStandalone",
       "SafetyClass": "ReadOnlyLive",
@@ -385,26 +541,6 @@
       "Public": true
     },
     {
-      "ModuleId": "Invoke-MSADPTADCSConfigurationCollection",
-      "Version": "unversioned",
-      "Category": "ADCS",
-      "ComponentType": "Collector",
-      "EntryPoint": "Modules/ADCS/Invoke-MSADPTADCSConfigurationCollection.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "IntegratedOptional",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "ActivationParameter": "IncludeADCS",
-      "SupportedProfiles": [
-        "Quick",
-        "Full"
-      ],
-      "ResumeSupported": true,
-      "IntegrationRole": "OptionalCollector",
-      "ExecutionOrder": 50
-    },
-    {
       "ModuleId": "Invoke-MSADPTADCSEndToEndRebuild",
       "Version": "1.0.0",
       "Category": "ADCS",
@@ -413,6 +549,18 @@
       "Maturity": "AvailableStandalone",
       "OrchestrationState": "AvailableStandalone",
       "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTADCSESC2ESC15RealEvidence",
+      "Version": "unversioned",
+      "Category": "ADCS",
+      "ComponentType": "Utility",
+      "EntryPoint": "Analysis/ADCS/Invoke-MSADPTADCSESC2ESC15RealEvidence.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
       "RequiresExplicitApproval": false,
       "Public": true
     },
@@ -441,6 +589,18 @@
       "Public": true
     },
     {
+      "ModuleId": "Invoke-MSADPTADCSPrerequisiteCorrelation",
+      "Version": "unversioned",
+      "Category": "ADCS",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Analysis/ADCS/Invoke-MSADPTADCSPrerequisiteCorrelation.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
       "ModuleId": "Invoke-MSADPTADCSRuntimeCorrelationAndDelta",
       "Version": "1.0.0",
       "Category": "ADCS",
@@ -465,95 +625,14 @@
       "Public": true
     },
     {
-      "ModuleId": "Invoke-MSADPTADCSAttackPathPrerequisiteValidation",
+      "ModuleId": "Invoke-MSADPTADCSUnifiedCandidateInventory",
       "Version": "unversioned",
       "Category": "ADCS",
-      "ComponentType": "Validator",
-      "EntryPoint": "Modules/ADCSAttackPathPrerequisiteValidation/Invoke-MSADPTADCSAttackPathPrerequisiteValidation.ps1",
+      "ComponentType": "Utility",
+      "EntryPoint": "Analysis/ADCS/Invoke-MSADPTADCSUnifiedCandidateInventory.ps1",
       "Maturity": "AvailableStandalone",
       "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "Invoke-MSADPTADCSCARuntimeConfigurationCollection",
-      "Version": "unversioned",
-      "Category": "ADCS",
-      "ComponentType": "Collector",
-      "EntryPoint": "Modules/ADCSCARuntimeConfigurationCollection/Invoke-MSADPTADCSCARuntimeConfigurationCollection.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true
-    },
-    {
-      "ModuleId": "Invoke-MSADPTDomainControllerEnumeration",
-      "Version": "unversioned",
-      "Category": "DomainControllers",
-      "ComponentType": "Collector",
-      "EntryPoint": "Modules/DomainControllers/Invoke-MSADPTDomainControllerEnumeration.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "Integrated",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "SupportedProfiles": [
-        "Quick",
-        "Full"
-      ],
-      "IntegrationRole": "Collector",
-      "ExecutionOrder": 30,
-      "ResumeSupported": true
-    },
-    {
-      "ModuleId": "Complete-MSADPTKerberosSPNBaseline",
-      "Version": "0.1.2",
-      "Category": "Kerberos",
-      "ComponentType": "Collector",
-      "EntryPoint": "Modules/Kerberos/Complete-MSADPTKerberosSPNBaseline-v0.1.2.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "Integrated",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "SupportedProfiles": [
-        "Quick",
-        "Full"
-      ],
-      "IntegrationRole": "RecoveryAnalyzer",
-      "ExecutionOrder": 20,
-      "ResumeSupported": true
-    },
-    {
-      "ModuleId": "Invoke-MSADPTKerberosSPNBaselineCollection",
-      "Version": "0.1.2",
-      "Category": "Kerberos",
-      "ComponentType": "Collector",
-      "EntryPoint": "Modules/Kerberos/Invoke-MSADPTKerberosSPNBaselineCollection-v0.1.2.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "Integrated",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "SupportedProfiles": [
-        "Quick",
-        "Full"
-      ],
-      "IntegrationRole": "Collector",
-      "ExecutionOrder": 10,
-      "ResumeSupported": true
-    },
-    {
-      "ModuleId": "Complete-MSADPTADObjectControlGateDiagnostics",
-      "Version": "0.1.2",
-      "Category": "ObjectControl",
-      "ComponentType": "Analyzer",
-      "EntryPoint": "Modules/ObjectControl/Complete-MSADPTADObjectControlGateDiagnostics-v0.1.2.ps1",
-      "Maturity": "AvailableStandalone",
-      "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "ReadOnlyLive",
+      "SafetyClass": "Offline",
       "RequiresExplicitApproval": false,
       "Public": true
     },
@@ -626,6 +705,30 @@
       "Maturity": "AvailableStandalone",
       "OrchestrationState": "AvailableStandalone",
       "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTKerberoastTicketValidation",
+      "Version": "0.1.0",
+      "Category": "Kerberos",
+      "ComponentType": "Validator",
+      "EntryPoint": "Modules/Unclassified/Invoke-MSADPTKerberoastTicketValidation-v0.1.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "ReadOnlyLive",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTPostCollectionProcessing",
+      "Version": "unversioned",
+      "Category": "Platform",
+      "ComponentType": "Collector",
+      "EntryPoint": "Tools/Invoke-MSADPTPostCollectionProcessing.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
       "RequiresExplicitApproval": false,
       "Public": true
     },
@@ -786,42 +889,119 @@
       "Public": true
     },
     {
-      "ModuleId": "Invoke-MSADPTSMBSharePivotAssessment",
-      "Version": "0.1.1",
-      "Category": "SMB",
-      "ComponentType": "Utility",
-      "EntryPoint": "Modules/SMB/Invoke-MSADPTSMBSharePivotAssessment-v0.1.1.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "IntegratedOptional",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "ActivationParameter": "IncludeSMB",
-      "SupportedProfiles": [
-        "Full"
-      ],
-      "ResumeSupported": true,
-      "IntegrationRole": "OptionalCollector",
-      "ExecutionOrder": 32
-    },
-    {
-      "ModuleId": "Invoke-MSADPTKerberoastTicketValidation",
-      "Version": "0.1.0",
-      "Category": "Kerberos",
-      "ComponentType": "Validator",
-      "EntryPoint": "Modules/Unclassified/Invoke-MSADPTKerberoastTicketValidation-v0.1.0.ps1",
+      "ModuleId": "Merge-MSADPTADCSCandidateInventories",
+      "Version": "unversioned",
+      "Category": "ADCS",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Analysis/ADCS/Merge-MSADPTADCSCandidateInventories.ps1",
       "Maturity": "AvailableStandalone",
       "OrchestrationState": "AvailableStandalone",
-      "SafetyClass": "ReadOnlyLive",
+      "SafetyClass": "Offline",
       "RequiresExplicitApproval": false,
       "Public": true
     },
     {
-      "ModuleId": "Invoke-MSADPTPostCollectionProcessing",
+      "ModuleId": "MSADPT_audit_adcs_esc1_esc16",
+      "Version": "unversioned",
+      "Category": "ADCS",
+      "ComponentType": "Validator",
+      "EntryPoint": "MSADPT_audit_adcs_esc1_esc16.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "MSADPT_enumerate_dc2",
       "Version": "unversioned",
       "Category": "Platform",
       "ComponentType": "Collector",
-      "EntryPoint": "Tools/Invoke-MSADPTPostCollectionProcessing.ps1",
+      "EntryPoint": "MSADPT_enumerate_dc2.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "MSADPT_enumerate_shares2",
+      "Version": "unversioned",
+      "Category": "SMB",
+      "ComponentType": "Collector",
+      "EntryPoint": "MSADPT_enumerate_shares2.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "MSADPT_exploit_privesc_initial",
+      "Version": "unversioned",
+      "Category": "Platform",
+      "ComponentType": "Utility",
+      "EntryPoint": "MSADPT_exploit_privesc_initial.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "ExplicitApprovalRequired",
+      "RequiresExplicitApproval": true,
+      "Public": true
+    },
+    {
+      "ModuleId": "MSADPT_scan_network2",
+      "Version": "unversioned",
+      "Category": "Platform",
+      "ComponentType": "Collector",
+      "EntryPoint": "MSADPT_scan_network2.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "MSADPT_start2",
+      "Version": "unversioned",
+      "Category": "Platform",
+      "ComponentType": "Utility",
+      "EntryPoint": "MSADPT_start2.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "MSADPT-ADCS-CSV-Validator",
+      "Version": "unversioned",
+      "Category": "ADCS",
+      "ComponentType": "Validator",
+      "EntryPoint": "MSADPT-ADCS-CSV-Validator.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "New-MSADPTAssessmentSnapshotManifest",
+      "Version": "unversioned",
+      "Category": "Snapshot",
+      "ComponentType": "Utility",
+      "EntryPoint": "Analysis/New-MSADPTAssessmentSnapshotManifest.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true
+    },
+    {
+      "ModuleId": "Start-MSADPT",
+      "Version": "unversioned",
+      "Category": "Platform",
+      "ComponentType": "Orchestrator",
+      "EntryPoint": "Start-MSADPT.ps1",
       "Maturity": "AvailableStandalone",
       "OrchestrationState": "AvailableStandalone",
       "SafetyClass": "Offline",
@@ -841,102 +1021,17 @@
       "Public": true
     },
     {
-      "ModuleId": "Invoke-MSADPTDomainControllerPatchState",
-      "Version": "0.1.0",
-      "Category": "VulnerabilityIntelligence",
-      "ComponentType": "Collector",
-      "EntryPoint": "Modules/VulnerabilityIntelligence/Invoke-MSADPTDomainControllerPatchState-v0.1.0.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "IntegratedOptional",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "SupportedProfiles": [
-        "Quick",
-        "Full"
-      ],
-      "IntegrationRole": "OptionalCollector",
-      "ExecutionOrder": 40,
-      "ResumeSupported": true,
-      "ActivationParameter": "IncludePatchState"
-    },
-    {
-      "ModuleId": "Invoke-MSADPTKerberosCryptographicPosture",
-      "Version": "1.1.0",
-      "Category": "Kerberos",
-      "ComponentType": "Analyzer",
-      "EntryPoint": "Modules/KerberosCryptographicPosture/Invoke-MSADPTKerberosCryptographicPosture.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "Integrated",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "SupportedProfiles": [
-        "Quick",
-        "Full"
-      ],
-      "IntegrationRole": "Analyzer",
-      "ExecutionOrder": 25,
-      "ResumeSupported": true
-    },
-    {
-      "ModuleId": "Invoke-MSADPTADDnsSecurity",
-      "Version": "0.2.2",
-      "Category": "NameResolution",
-      "ComponentType": "Validator",
-      "EntryPoint": "Modules/ADDnsSecurity/Invoke-MSADPTADDnsSecurity.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "IntegratedOptional",
-      "SafetyClass": "BoundedWriteWithCleanup",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "ActivationParameter": "IncludeADDns",
-      "SupportedProfiles": [
-        "Quick",
-        "Full"
-      ],
-      "ResumeSupported": true,
-      "IntegrationRole": "OptionalCollectorValidator",
-      "ExecutionOrder": 35
-    },
-    {
-      "ModuleId": "Invoke-MSADPTDirectoryControlAssessment",
-      "Version": "1.0.1",
-      "Category": "DirectoryControl",
-      "ComponentType": "CollectorAnalyzer",
-      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlAssessment-v1.0.0.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "IntegratedOptional",
-      "SafetyClass": "ReadOnlyLive",
-      "RequiresExplicitApproval": false,
-      "Public": true,
-      "ActivationParameter": "IncludeDirectoryControl",
-      "SupportedProfiles": [
-        "Full"
-      ],
-      "ResumeSupported": true,
-      "IntegrationRole": "OptionalCollectorAnalyzer",
-      "ExecutionOrder": 70
-    },
-    {
-      "ModuleId": "Invoke-MSADPTDirectoryControlCandidateReduction",
-      "Version": "1.0.4",
-      "Category": "DirectoryControl",
-      "ComponentType": "Analyzer",
-      "EntryPoint": "Modules/ObjectControl/Invoke-MSADPTDirectoryControlCandidateReduction-v1.0.4.ps1",
-      "Maturity": "Integrated",
-      "OrchestrationState": "IntegratedOptional",
+      "ModuleId": "Start-MSADPTMilestone2",
+      "Version": "unversioned",
+      "Category": "Platform",
+      "ComponentType": "Orchestrator",
+      "EntryPoint": "Start-MSADPTMilestone2.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
       "SafetyClass": "Offline",
       "RequiresExplicitApproval": false,
-      "Public": true,
-      "ActivationParameter": "IncludeDirectoryControl",
-      "SupportedProfiles": [
-        "Full"
-      ],
-      "ResumeSupported": true,
-      "IntegrationRole": "OfflineReducer",
-      "ExecutionOrder": 71
+      "Public": true
     }
   ],
-  "IntegratedModuleCount": 11
+  "IntegratedModuleCount": 16
 }

@@ -89,7 +89,13 @@
         "Platform delegation review",
         "Unresolved trustee SID review",
         "Protected-object context",
-        "Inheritance-source grouping"
+        "Inheritance-source grouping",
+        "Token-expanded trustee evaluation",
+        "Object-class applicability",
+        "Explicit and inherited deny precedence",
+        "Per-ACE decision trace",
+        "Manifest-backed resume",
+        "Effective-access HTML evidence"
       ]
     },
     {

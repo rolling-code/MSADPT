@@ -13,7 +13,7 @@ No Kerberos tickets are requested. No passwords are collected. No directory or r
 modified.
 
 .NOTES
-Version: 1.10.0
+Version: 1.11.0
 #>
 [CmdletBinding()]
 param(
@@ -43,7 +43,7 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$OrchestratorVersion = '1.10.0'
+$OrchestratorVersion = '1.11.0'
 $Root = $PSScriptRoot
 
 # Full automatically selects every assessment family that currently has a validated first-class
@@ -838,6 +838,26 @@ if ($IncludeDirectoryControl) {
     }
     elseif ($Mode -in @('Analyze','Resume')) { $Errors.Add([pscustomobject]@{Module='DirectoryControlReduction';Stage='OfflineAnalysis';Error='Directory Control candidate evidence is unavailable.'}) }
 # DIRECTORY-CONTROL-STAGE-END
+# EFFECTIVE-ACCESS-INTEGRATION-BEGIN
+if ($IncludeDirectoryControl) {
+    $EffectiveAccessPipeline = Join-Path $Root 'Modules\ObjectControl\Invoke-MSADPTDirectoryControlEffectiveAccessPipeline-v1.0.3.ps1'
+    if (-not (Test-Path -LiteralPath $EffectiveAccessPipeline -PathType Leaf)) { throw 'DirectoryControlEffectiveAccessPipelineMissing' }
+    $EffectiveAccessArguments = @{ EngagementDirectory=$EngagementDirectory; Server=$BootstrapServer; NoColor=[bool]$NoColor }
+    if ($null -ne $Credential) { $EffectiveAccessArguments.Credential=$Credential }
+    Show -State 'EFFECTIVE' -Message 'Running token, schema, offline effective-access, stage-state, and report pipeline.' -Color Cyan
+    try {
+        $EffectiveAccessOutput = @(& $EffectiveAccessPipeline @EffectiveAccessArguments)
+        $EffectiveAccessResult = @($EffectiveAccessOutput | Where-Object { $null -ne $_ -and $null -ne $_.PSObject.Properties['PipelineVersion'] }) | Select-Object -Last 1
+        if ($null -eq $EffectiveAccessResult) { throw 'DirectoryControlEffectiveAccessTerminalResultMissing' }
+        $LiveModulesExecuted++
+    }
+    catch {
+        $Errors.Add([pscustomobject]@{Module='DirectoryControlEffectiveAccess';Error=$_.Exception.Message}) | Out-Null
+        Show -State 'INCONCLUSIVE' -Message "Effective-access pipeline: $($_.Exception.Message)" -Color Yellow
+    }
+}
+# EFFECTIVE-ACCESS-INTEGRATION-END
+
 
 # PATCH-STAGE-BEGIN
 if ($IncludePatchState) {
