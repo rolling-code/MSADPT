@@ -1,0 +1,2 @@
+......................... DC01 passed test Connectivity
+......................... DC01 passed test Advertising

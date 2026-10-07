@@ -1,0 +1,3 @@
+Source: time.example.test
+Stratum: 3
+Last Successful Sync Time: now

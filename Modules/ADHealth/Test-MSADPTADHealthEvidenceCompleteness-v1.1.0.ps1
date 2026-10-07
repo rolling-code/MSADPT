@@ -1,0 +1,8 @@
+<# .SYNOPSIS Measures AD Health evidence coverage and duplicate inputs. .NOTES Version: 1.1.0 #>
+[CmdletBinding()]
+param([Parameter(Mandatory)][string]$ManifestPath)
+Set-StrictMode -Version 2.0;$ErrorActionPreference='Stop'
+$m=Get-Content -LiteralPath $ManifestPath -Raw|ConvertFrom-Json
+$supported=@($m.Items|Where-Object Supported);$observed=@($supported|ForEach-Object{$_.Target}|Where-Object{$_ -and $_ -notin @('Unknown','Domain')}|Sort-Object -Unique);$expected=@($m.ExpectedTargets|Sort-Object -Unique);$missing=@($expected|Where-Object{$_ -notin $observed})
+$duplicates=New-Object 'System.Collections.Generic.List[object]';foreach($g in @($supported|Group-Object SHA256|Where-Object Count -gt 1)){$duplicates.Add([pscustomobject]@{SHA256=$g.Name;Count=$g.Count;Paths=@($g.Group.Path)})}
+[pscustomobject][ordered]@{SchemaVersion='1.1';ExpectedTargetSource=$m.ExpectedTargetSource;CompletenessClaimsAllowed=[bool]$m.CompletenessClaimsAllowed;ExpectedTargetCount=$expected.Count;ObservedTargetCount=$observed.Count;ExpectedTargets=$expected;ObservedTargets=$observed;MissingTargets=$missing;SupportedFileCount=$supported.Count;UnsupportedFileCount=@($m.Items|Where-Object{-not $_.Supported}).Count;DuplicateGroupCount=$duplicates.Count;Duplicates=@($duplicates.ToArray());CoverageDisposition=if(-not $m.CompletenessClaimsAllowed){'Inconclusive'}elseif($missing.Count){'Partial'}else{'Complete'};Limitations=@(if(-not $m.CompletenessClaimsAllowed){'No expected-target source was provided; complete DC coverage cannot be claimed.'};if($missing.Count){"Missing expected targets: $($missing -join ', ')"};if($duplicates.Count){'Duplicate evidence hashes were detected and retained for review.'})}

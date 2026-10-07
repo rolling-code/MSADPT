@@ -2,7 +2,7 @@
   "SchemaVersion": "1.0",
   "GeneratedUtc": "2026-09-28T19:55:39.9339439Z",
   "DefaultExecutionPolicy": "PlanOnlyUnlessIntegrated",
-  "ModuleCount": 71,
+  "ModuleCount": 89,
   "Modules": [
     {
       "ModuleId": "Invoke-MSADPTKerberosSPNBaselineCollection",
@@ -1031,6 +1031,226 @@
       "SafetyClass": "Offline",
       "RequiresExplicitApproval": false,
       "Public": true
+    },
+    {
+      "ModuleId": "ConvertFrom-MSADPTADHealthOutput",
+      "Version": "1.0.0",
+      "Category": "ADHealth",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Modules/ADHealth/ConvertFrom-MSADPTADHealthOutput-v1.0.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Merge-MSADPTADHealthEvidence",
+      "Version": "1.0.0",
+      "Category": "ADHealth",
+      "ComponentType": "Correlator",
+      "EntryPoint": "Modules/ADHealth/Merge-MSADPTADHealthEvidence-v1.0.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "New-MSADPTADHealthReport",
+      "Version": "1.0.0",
+      "Category": "ADHealth",
+      "ComponentType": "Reporter",
+      "EntryPoint": "Modules/ADHealth/New-MSADPTADHealthReport-v1.0.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Import-MSADPTADHealthEvidence",
+      "Version": "1.1.0",
+      "Category": "ADHealth",
+      "ComponentType": "Importer",
+      "EntryPoint": "Modules/ADHealth/Import-MSADPTADHealthEvidence-v1.1.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Test-MSADPTADHealthEvidenceCompleteness",
+      "Version": "1.1.0",
+      "Category": "ADHealth",
+      "ComponentType": "Analyzer",
+      "EntryPoint": "Modules/ADHealth/Test-MSADPTADHealthEvidenceCompleteness-v1.1.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTADHealthOfflineAssessment",
+      "Version": "1.1.0",
+      "Category": "ADHealth",
+      "ComponentType": "Pipeline",
+      "EntryPoint": "Modules/ADHealth/Invoke-MSADPTADHealthOfflineAssessment-v1.1.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Prepare-MSADPTADHealthEvidence",
+      "Version": "1.2.0",
+      "Category": "ADHealth",
+      "ComponentType": "EvidencePreparation",
+      "EntryPoint": "Modules/ADHealth/Prepare-MSADPTADHealthEvidence-v1.2.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Invoke-MSADPTADHealthCollection",
+      "Version": "1.3.0",
+      "Category": "ADHealth",
+      "ComponentType": "Collector",
+      "EntryPoint": "Modules/ADHealth/Invoke-MSADPTADHealthCollection-v1.3.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "ReadOnlyNetwork",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Test-MSADPTADHealthCollectionEvidence",
+      "Version": "1.4.0",
+      "Category": "ADHealth",
+      "ComponentType": "ValidationGate",
+      "EntryPoint": "Tests/Offline/Test-MSADPTADHealthCollectionEvidence-v1.4.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Test-MSADPTADHealthCollectionFailureContracts",
+      "Version": "1.5.0",
+      "Category": "ADHealth",
+      "ComponentType": "RegressionTest",
+      "EntryPoint": "Tests/Offline/Test-MSADPTADHealthCollectionFailureContracts-v1.5.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "Test-MSADPTADHealthParserFailureSemantics",
+      "Version": "1.5.0",
+      "Category": "ADHealth",
+      "ComponentType": "RegressionTest",
+      "EntryPoint": "Tests/Offline/Test-MSADPTADHealthParserFailureSemantics-v1.5.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
+    },
+    {
+      "ModuleId": "New-MSADPTADHealthSanitizedFixture",
+      "Version": "1.6.0",
+      "Category": "ADHealth",
+      "ComponentType": "FixtureBuilder",
+      "EntryPoint": "Modules/ADHealth/New-MSADPTADHealthSanitizedFixture-v1.6.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": true,
+      "Public": true,
+      "SupportedProfiles": [
+        "Full"
+      ],
+      "ResumeSupported": false
+    },
+    {
+      "ModuleId": "Invoke-MSADPTADHealthRealFixtureRegression",
+      "Version": "1.6.0",
+      "Category": "ADHealth",
+      "ComponentType": "RegressionHarness",
+      "EntryPoint": "Tests/Offline/Invoke-MSADPTADHealthRealFixtureRegression-v1.6.0.ps1",
+      "Maturity": "AvailableStandalone",
+      "OrchestrationState": "AvailableStandalone",
+      "SafetyClass": "Offline",
+      "RequiresExplicitApproval": false,
+      "Public": true,
+      "SupportedProfiles": [
+        "Quick",
+        "Full"
+      ],
+      "ResumeSupported": true
     }
   ],
   "IntegratedModuleCount": 16

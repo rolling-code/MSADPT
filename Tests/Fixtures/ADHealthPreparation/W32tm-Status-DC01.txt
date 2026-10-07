@@ -1,0 +1,2 @@
+Source: time.example.test
+Stratum: 3
