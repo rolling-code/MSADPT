@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://msadpt.local/schemas/report-section.schema.json",
+  "title": "MSADPT Normalized Report Section",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "moduleId",
+    "moduleVersion",
+    "title",
+    "category",
+    "execution",
+    "posture",
+    "metrics",
+    "findings",
+    "evidenceLinks",
+    "limitations",
+    "recommendations",
+    "generatedUtc"
+  ],
+  "properties": {
+    "schemaVersion": { "const": "1.0" },
+    "moduleId": { "type": "string", "minLength": 1 },
+    "moduleVersion": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "category": { "type": "string", "minLength": 1 },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "mode", "profile", "target", "startedUtc", "completedUtc", "durationSeconds", "reusedEvidence", "networkExecuted", "directoryChanges"],
+      "properties": {
+        "status": { "enum": ["NotStarted", "Planned", "Completed", "CompletedWithLimitations", "Reused", "Blocked", "Failed", "NotApplicable"] },
+        "mode": { "enum": ["Plan", "Audit", "Analyze", "Resume", "Standalone"] },
+        "profile": { "enum": ["Quick", "Full", "Standalone", "NotApplicable"] },
+        "target": { "type": ["string", "null"] },
+        "startedUtc": { "type": ["string", "null"] },
+        "completedUtc": { "type": ["string", "null"] },
+        "durationSeconds": { "type": ["number", "null"], "minimum": 0 },
+        "reusedEvidence": { "type": "boolean" },
+        "networkExecuted": { "type": "boolean" },
+        "directoryChanges": { "enum": ["None", "Attempted", "Completed", "Unknown"] }
+      }
+    },
+    "posture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "summary", "confidence", "evidenceComplete"],
+      "properties": {
+        "disposition": { "enum": ["Confirmed", "Likely or probable", "Inconclusive", "Not detected", "Not applicable"] },
+        "summary": { "type": "string", "minLength": 1 },
+        "confidence": { "enum": ["High", "Medium", "Low", "NotApplicable"] },
+        "evidenceComplete": { "type": "boolean" }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "value", "state", "description"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "label": { "type": "string", "minLength": 1 },
+          "value": {},
+          "state": { "enum": ["Good", "Informational", "Attention", "Unavailable", "NotApplicable"] },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "title", "disposition", "summary", "evidence", "limitations", "recommendation", "priority"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1 },
+          "title": { "type": "string", "minLength": 1 },
+          "disposition": { "enum": ["Confirmed", "Likely or probable", "Inconclusive", "Not detected", "Not applicable"] },
+          "summary": { "type": "string", "minLength": 1 },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "limitations": { "type": "array", "items": { "type": "string" } },
+          "recommendation": { "type": "string" },
+          "priority": { "enum": ["Immediate", "High", "Normal", "Informational", "NotApplicable"] }
+        }
+      }
+    },
+    "evidenceLinks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["label", "relativePath", "mediaType", "exists"],
+        "properties": {
+          "label": { "type": "string", "minLength": 1 },
+          "relativePath": { "type": "string", "minLength": 1 },
+          "mediaType": { "enum": ["application/json", "text/csv", "text/html", "text/plain", "application/octet-stream"] },
+          "exists": { "type": "boolean" }
+        }
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "recommendations": { "type": "array", "items": { "type": "string" } },
+    "generatedUtc": { "type": "string", "minLength": 1 }
+  }
+}

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-Runs or plans an MSADPT assessment.
+Runs, plans, resumes, or analyzes an MSADPT assessment.
 
 .DESCRIPTION
 The Quick profile provides the bounded operational workflow. The Full profile automatically selects every currently first-class integrated read-only assessment family and preserves explicit gating for behavioral validators. It performs local
@@ -8,12 +8,14 @@ preflight, announces the live Active Directory query plan, collects a Kerberos/S
 collects domain-controller directory metadata using the selected bootstrap DC, updates normalized
 stage state and coverage, and writes a consolidated HTML report.
 
+Analyze mode rebuilds normalized sections and the unified HTML report from saved engagement evidence without executing live collectors.
+
 Resume mode reuses completed, manifest-backed evidence and does not repeat completed collectors.
 No Kerberos tickets are requested. No passwords are collected. No directory or remote system is
 modified.
 
 .NOTES
-Version: 1.11.0
+Version: 1.12.0
 #>
 [CmdletBinding()]
 param(
@@ -25,6 +27,13 @@ param(
     [string]$Profile = 'Quick',
 
     [string]$EngagementDirectory,
+    [string[]]$AdditionalEngagementDirectory = @(),
+    [string]$ReportOutputDirectory,
+    [string]$ReportName,
+    [ValidateSet('Fail','Newest')]
+    [string]$DuplicateModulePolicy = 'Newest',
+    [switch]$ForceRebuildReportSections,
+    [switch]$OpenReport,
     [string]$Server,
     [PSCredential]$Credential,
     [switch]$NoColor,
@@ -43,8 +52,115 @@ param(
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
-$OrchestratorVersion = '1.11.0'
+$OrchestratorVersion = '1.11.1'
+# MSADPT-INTEGRATION: ManagedSecretsGmsa-v1.0.3
+$ManagedSecretsGmsaReportAdapter = Join-Path $Root 'Modules\ObjectControl\New-MSADPTManagedSecretsAndGmsaReportSection-v1.0.9.ps1'
+$UnifiedReportBuilder = Join-Path $Root 'Tools\Build-MSADPTUnifiedReport-v1.0.14.ps1'
 $Root = $PSScriptRoot
+
+# Analyze is a strictly offline reporting route. It exits before profile expansion, AD preflight,
+# bootstrap server selection, module collection, or any live assessment dependency is evaluated.
+if ($Mode -eq 'Analyze') {
+    $AnalyzeRoots = @(
+        if (-not [string]::IsNullOrWhiteSpace($EngagementDirectory)) {
+            $EngagementDirectory
+        }
+        foreach ($AdditionalRoot in @($AdditionalEngagementDirectory)) {
+            if (-not [string]::IsNullOrWhiteSpace($AdditionalRoot)) {
+                $AdditionalRoot
+            }
+        }
+    ) | Select-Object -Unique
+
+    if ($AnalyzeRoots.Count -eq 0) {
+        throw 'Analyze mode requires -EngagementDirectory and optionally -AdditionalEngagementDirectory.'
+    }
+
+    $ReportBuilderPath = Join-Path $Root 'Tools\Build-MSADPTUnifiedReport-v1.0.14.ps1'
+    if (-not (Test-Path -LiteralPath $ReportBuilderPath -PathType Leaf)) {
+        throw "Analyze mode report builder not found: $ReportBuilderPath"
+    }
+
+    $ParserTokens = $null
+    $ParserErrors = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile(
+        $ReportBuilderPath,
+        [ref]$ParserTokens,
+        [ref]$ParserErrors
+    )
+    if (@($ParserErrors).Count -gt 0) {
+        throw "Analyze mode report builder parser failure: $(@($ParserErrors | ForEach-Object { $_.Message }) -join '; ')"
+    }
+
+    if ([string]::IsNullOrWhiteSpace($ReportOutputDirectory)) {
+        $ReportOutputDirectory = Join-Path $Root 'Output\UnifiedReport'
+    }
+    if ([string]::IsNullOrWhiteSpace($ReportName)) {
+        $ReportName = 'MSADPT-Unified-{0}' -f (Get-Date -Format 'yyyyMMdd-HHmmss')
+    }
+
+    Write-Host '=== MSADPT offline analysis and report rebuild ===' -ForegroundColor Cyan
+    Write-Host ("Repository root   : {0}" -f $Root)
+    Write-Host ("Engagement roots  : {0}" -f ($AnalyzeRoots -join '; '))
+    Write-Host ("Report output     : {0}" -f $ReportOutputDirectory)
+    Write-Host ("Report name       : {0}" -f $ReportName)
+    Write-Host ("Duplicate policy  : {0}" -f $DuplicateModulePolicy)
+    Write-Host ("Rebuild sections  : {0}" -f [bool]$ForceRebuildReportSections)
+    Write-Host 'Network activity  : None'
+    Write-Host 'Directory changes : None'
+    Write-Host ''
+
+    $BuilderParameters = @{
+        EngagementDirectory = @($AnalyzeRoots)
+        RepositoryRoot = $Root
+        OutputDirectory = $ReportOutputDirectory
+        ReportName = $ReportName
+        DuplicateModulePolicy = $DuplicateModulePolicy
+        ForceRebuildSections = [bool]$ForceRebuildReportSections
+        OpenReport = [bool]$OpenReport
+        NoColor = [bool]$NoColor
+    }
+
+    $AnalyzeResult = & $ReportBuilderPath @BuilderParameters
+    $ReportResult = @(
+        $AnalyzeResult |
+            Where-Object {
+                $_ -is [psobject] -and
+                $null -ne $_.PSObject.Properties['HtmlReportPath']
+            } |
+            Select-Object -Last 1
+    )
+
+    if ($ReportResult.Count -ne 1) {
+        throw 'Analyze mode report builder did not return one final report result.'
+    }
+
+    $FinalResult = [pscustomobject][ordered]@{
+        Status = [string]$ReportResult[0].Status
+        OrchestratorVersion = $OrchestratorVersion
+        Mode = 'Analyze'
+        Profile = $Profile
+        EngagementDirectoryCount = [int]$ReportResult[0].EngagementDirectoryCount
+        DiscoveredCollectionCount = [int]$ReportResult[0].DiscoveredCollectionCount
+        SelectedCollectionCount = [int]$ReportResult[0].SelectedCollectionCount
+        SelectedSectionCount = [int]$ReportResult[0].SelectedSectionCount
+        SectionCount = [int]$ReportResult[0].SectionCount
+        FindingCount = [int]$ReportResult[0].FindingCount
+        CompletedCount = [int]$ReportResult[0].CompletedCount
+        CompletedWithLimitationsCount = [int]$ReportResult[0].CompletedWithLimitationsCount
+        FailedCount = [int]$ReportResult[0].FailedCount
+        HtmlReportPath = [string]$ReportResult[0].HtmlReportPath
+        JsonIndexPath = [string]$ReportResult[0].JsonIndexPath
+        ValidationPath = [string]$ReportResult[0].ValidationPath
+        BuildManifestPath = [string]$ReportResult[0].BuildManifestPath
+        NetworkActivity = 'None'
+        DirectoryChanges = 'None'
+        LiveCollectorsExecuted = 0
+    }
+
+    $FinalResult
+    return
+}
 
 # Full automatically selects every assessment family that currently has a validated first-class
 # orchestration contract. Behavioral changes remain controlled by EnableBehavioralValidation.

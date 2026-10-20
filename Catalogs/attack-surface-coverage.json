@@ -1,5 +1,5 @@
 {
-  "SchemaVersion": "1.0",
+  "SchemaVersion": "1.1",
   "AllowedStates": [
     "NotStarted",
     "Planned",
@@ -156,6 +156,55 @@
         "IPv6 DNS",
         "AD-integrated DNS zone discovery",
         "Low-privileged dnsNode create-read-delete validation"
+      ]
+    },
+    {
+      "Id": "Directory.Replication",
+      "Name": "Replication and topology",
+      "Techniques": [
+        "Replication partner health",
+        "Naming-context replication coverage",
+        "Topology metadata consistency",
+        "Orphaned replication metadata"
+      ]
+    },
+    {
+      "Id": "Identity.PrivilegedGroups",
+      "Name": "Privileged and sensitive group paths",
+      "Techniques": [
+        "Direct privileged membership",
+        "Nested privileged membership paths",
+        "AdminSDHolder control",
+        "adminCount inventory",
+        "Dangling privileged membership references",
+        "Privileged group ACLs"
+      ]
+    },
+    {
+      "Id": "Identity.AuthenticationPolicy",
+      "Name": "Authentication Policies and Protected Users",
+      "Techniques": [
+        "Authentication Policy inventory",
+        "Authentication Policy Silo inventory",
+        "Policy and silo assignments",
+        "Silo membership consistency",
+        "Protected Users membership",
+        "Account posture evidence availability"
+      ]
+    },
+    {
+      "Id": "Identity.ManagedSecrets",
+      "Name": "Managed secrets and gMSA retrieval",
+      "Techniques": [
+        "LAPS coverage metadata",
+        "Managed-secret delegation candidates",
+        "Configured gMSA retrieval principals",
+        "Effective expanded gMSA retrieval principals",
+        "Privileged retrieval intersections",
+        "Unresolved principal limitations",
+        "gMSA Kerberos encryption configuration",
+        "Manifest-backed offline analysis",
+        "Unified report-section output"
       ]
     }
   ]
