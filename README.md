@@ -439,3 +439,33 @@ Review the module registry, execution plan, attack-surface coverage catalog, dis
 ## License and contributions
 
 Use MSADPT only in environments where testing is authorized. Contributions should preserve the evidence-first model, public-release hygiene, explicit operational disclosure, bounded validation, structured evidence, resumable execution, and cleanup guarantees.
+<!-- MSADPT-UNIFIED-REPORT-WORKFLOW -->
+## Unified HTML reporting
+
+MSADPT can build one consolidated HTML report from supported collection evidence. The unified report keeps **Confirmed**, **Likely or probable**, **Inconclusive**, **Not detected**, and **Not applicable** distinct, and links normalized findings back to local structured evidence.
+
+Run a planned assessment without executing live stages:
+
+```powershell
+.\Invoke-MSADPT.ps1 -Mode Plan
+```
+
+Run the authorized audit workflow:
+
+```powershell
+.\Invoke-MSADPT.ps1 -Mode Audit
+```
+
+Resume an existing engagement without repeating completed collection work:
+
+```powershell
+.\Invoke-MSADPT.ps1 -Mode Resume -EngagementDirectory .\Engagements\<engagement-name>
+```
+
+Build or rebuild reporting from saved evidence:
+
+```powershell
+.\Invoke-MSADPT.ps1 -Mode Analyze -EngagementDirectory .\Engagements\<engagement-name>
+```
+
+When reporting completes, open the generated HTML file under the engagement report directory shown in the console. Runtime evidence, generated reports, local backups, transcripts, and organization-specific engagement data remain excluded from the public repository.
